@@ -27,6 +27,7 @@ export const ASSETS = Object.freeze({
       RUN: "theertha-run",
       JUMP: "theertha-jump",
       KISS: "theertha-kiss",
+      HIT: "theertha-hit",
     },
     AKSHAY: {
       IDLE: "akshay-idle",
@@ -35,11 +36,21 @@ export const ASSETS = Object.freeze({
     MINION: {
       IDLE: "minion-idle",
       RUN: "minion-run",
+      HIT: "minion-hit",
+      JUMP: "minion-jump",
+    },
+    BOSS: {
+      IDLE: "boss-idle",
+      HIT: "boss-hit",
+      JUMP: "boss-jump",
+      FALL: "boss-fall",
+      ATTACK: "boss-attack",
     },
   },
 
   ITEMS: {
     HEART: "heart",
     STARS: "stars",
+    ENERGY_BALL: "energy-ball",
   },
 });
