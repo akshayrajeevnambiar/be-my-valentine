@@ -5,6 +5,11 @@ export const ASSETS = Object.freeze({
       MIDDLE: "grass-ground-middle",
       RIGHT: "grass-ground-right",
     },
+    GRASS_FLOATING: {
+      LEFT: "grass-floating-left",
+      MIDDLE: "grass-floating-middle",
+      RIGHT: "grass-floating-right",
+    },
   },
 
   BACKGROUNDS: {
@@ -23,9 +28,18 @@ export const ASSETS = Object.freeze({
       JUMP: "theertha-jump",
       KISS: "theertha-kiss",
     },
+    AKSHAY: {
+      IDLE: "akshay-idle",
+      RUN: "akshay-run",
+    },
+    MINION: {
+      IDLE: "minion-idle",
+      RUN: "minion-run",
+    },
   },
 
   ITEMS: {
     HEART: "heart",
+    STARS: "stars",
   },
 });
