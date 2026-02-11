@@ -110,20 +110,17 @@ export default class BossController {
         this.shootEnergyBall(0);
       });
     } else if (healthPercent > 0.33) {
-      // Phase 2: Triple shot
+      // Phase 2: Double shot
       this.scene.time.delayedCall(400, () => {
-        this.shootEnergyBall(-15);
-        this.shootEnergyBall(0);
-        this.shootEnergyBall(15);
+        this.shootEnergyBall(-20, 0.2);
+        this.shootEnergyBall(20, 0.2);
       });
     } else {
-      // Phase 3: Spread shot (5 balls)
+      // Phase 3: Spread shot (3 balls)
       this.scene.time.delayedCall(400, () => {
-        this.shootEnergyBall(-30);
-        this.shootEnergyBall(-15);
-        this.shootEnergyBall(0);
-        this.shootEnergyBall(15);
-        this.shootEnergyBall(30);
+        this.shootEnergyBall(-15, 0.1);
+        this.shootEnergyBall(0, 0.1);
+        this.shootEnergyBall(15, 0.1);
       });
     }
 
@@ -136,7 +133,7 @@ export default class BossController {
     });
   }
 
-  shootEnergyBall(angleOffset = 0) {
+  shootEnergyBall(angleOffset = 0, scale = 0.3) {
     if (!this.boss || !this.boss.active) return;
 
     // Get player position for aiming
@@ -158,7 +155,7 @@ export default class BossController {
     );
 
     // Scale down since new sprite is much larger (384x393)
-    ball.setScale(0.3); // Smaller scale for the larger sprite
+    ball.setScale(scale);
     ball.setDepth(25);
     ball.play("energy-ball");
 
@@ -205,6 +202,9 @@ export default class BossController {
   }
 
   die() {
+    if (!this.boss || !this.boss.active) return;
+    if (this.boss.isDead) return;
+
     this.boss.isDead = true;
     this.isAttacking = false;
 
@@ -232,6 +232,10 @@ export default class BossController {
 
           // Hide boss health bar with fade out
           this.scene.hudManager.hideBossHealth();
+
+          if (typeof this.scene.onBossDefeated === "function") {
+            this.scene.onBossDefeated();
+          }
 
           console.log("Victory!");
         }
