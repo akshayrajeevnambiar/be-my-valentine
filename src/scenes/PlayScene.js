@@ -27,11 +27,47 @@ export default class PlayScene extends Phaser.Scene {
     this.cutsceneAutoMove = false;
     this.cutsceneControlLocked = false;
     this.cutsceneAutoMoveCompleted = false;
+    this.bossArenaSpeechControlLocked = false;
     this.akshay = null;
     this.akshayEntranceStarted = false;
+    this.bossArenaSpeechShown = false;
+    this.bossArenaSpeechRunning = false;
     this.jumpDisabled = false;
     this.endKissActive = false;
+    this.endRunActive = false;
+    this.slideshowPlaceholderActive = false;
+    this.carouselPhotos = [];
+    this.carouselPhotoIndex = 0;
+    this.carouselSpeed = 4;
+    this.carouselEndTriggered = false;
+    this.carouselLastPhotoReached = false;
+    this.carouselMessagesCompleted = false;
+    this.carouselTransitionQueued = false;
+    this.carouselFadeOutStarted = false;
+    this.carouselMessageText = null;
+    this.carouselMessageIndex = 0;
+    this.carouselMessageTimer = null;
+    this.floatingHearts = null;
+    this.slideshowPhotosReady = false;
+    this.slideshowPhotoPreloadStarted = false;
     this.controlInstructionImages = [];
+    this.slideshowPhotoKeys = Array.from(
+      { length: 32 },
+      (_, index) => `photo-${index + 1}`,
+    );
+    this.carouselMessages = [
+      "We started as two separate stories...",
+      "And somehow, life brought us together.",
+      "Through laughs, chaos, distance, and dreams...",
+      "Through every challenge, you stayed by my side.",
+      "You are my peace in the noise.",
+      "My courage when I doubt myself.",
+      "My favorite place to come back to.",
+      "Every memory with you feels like magic.",
+      "And this is only the beginning...",
+      "More adventures await us, my love.",
+      "Happy Valentine's Day.",
+    ];
 
     // Constants
     this.TILE_SIZE = 128;
@@ -93,7 +129,7 @@ export default class PlayScene extends Phaser.Scene {
     this.createControlInstructionsUI();
   }
 
-  update() {
+  update(_time, delta) {
     // Check boss gate boundary lock and spawn boss
     if (
       !this.leftBoundLocked &&
@@ -102,12 +138,14 @@ export default class PlayScene extends Phaser.Scene {
       this.lockLeftBoundaryAt(this.BOSS_GATE_X);
       this.lockRightBoundaryAt(this.BOSS_RIGHT_GATE_X);
       this.spawnBoss(); // Spawn boss when entering arena
+      this.playBossArenaSpeech();
     }
 
     // Update all systems
     this.playerController.update();
     this.enemyManager.update();
     this.backgroundManager.update();
+    this.updatePhotoCarousel(delta);
 
     if (
       !this.cutsceneTriggered &&
@@ -128,6 +166,133 @@ export default class PlayScene extends Phaser.Scene {
     this.enemyManager.spawnBoss(5600, groundTopY - 400, 300);
 
     console.log("Boss spawned! Fight begins!");
+  }
+
+  playBossArenaSpeech() {
+    if (this.bossArenaSpeechShown || this.bossArenaSpeechRunning) return;
+
+    const boss = this.enemyManager?.bosses
+      ?.getChildren()
+      ?.find((b) => b.active);
+    if (!boss) return;
+
+    this.bossArenaSpeechShown = true;
+    this.bossArenaSpeechRunning = true;
+    this.bossArenaSpeechControlLocked = true;
+
+    const lines = [
+      "You came.",
+      "Most hearts break before this point.",
+      "Lets see how far your love can go",
+    ];
+
+    const bubbleOffsetX = 240;
+    const bubbleOffsetY = -250;
+    const textOffsetY = -265;
+    const bubbleLeftOffset = 20;
+    const bubbleRightOffset = 20;
+    const bubbleInnerWidthRatio = 0.58;
+    const bubbleSafetyScale = 1.08;
+
+    const bubble = this.add
+      .image(
+        boss.x - bubbleOffsetX,
+        boss.y + bubbleOffsetY,
+        ASSETS.ITEMS.SPEECH_BUBBLE,
+      )
+      .setDepth(90)
+      .setScale(0.5)
+      .setFlipX(true)
+      .setAlpha(0);
+
+    const bubbleBaseScaleY = 0.5;
+    const bubbleTextureWidth = bubble.width;
+
+    const speechText = this.add
+      .text(boss.x - bubbleOffsetX, boss.y + textOffsetY, "", {
+        fontSize: "30px",
+        fontFamily: "Arial",
+        color: "#1f1f1f",
+        align: "center",
+      })
+      .setOrigin(0.5)
+      .setDepth(91)
+      .setAlpha(0);
+
+    const syncWithBoss = () => {
+      if (!boss.active || !bubble.active || !speechText.active) return;
+      bubble.setPosition(boss.x - bubbleOffsetX, boss.y + bubbleOffsetY);
+      speechText.setPosition(boss.x - bubbleOffsetX, boss.y + textOffsetY);
+    };
+
+    const syncEvent = this.time.addEvent({
+      delay: 16,
+      loop: true,
+      callback: syncWithBoss,
+    });
+
+    const cleanup = () => {
+      if (syncEvent) syncEvent.remove(false);
+      if (speechText && speechText.active) speechText.destroy();
+      if (bubble && bubble.active) bubble.destroy();
+      this.bossArenaSpeechRunning = false;
+      this.bossArenaSpeechControlLocked = false;
+    };
+
+    const showLine = (index) => {
+      if (!boss.active || !bubble.active || !speechText.active) {
+        cleanup();
+        return;
+      }
+
+      if (index >= lines.length) {
+        this.tweens.add({
+          targets: [speechText, bubble],
+          alpha: 0,
+          duration: 220,
+          onComplete: cleanup,
+        });
+        return;
+      }
+
+      speechText.setText(lines[index]);
+      const textWidth = speechText.width;
+      const targetInnerWidth = textWidth + bubbleLeftOffset + bubbleRightOffset;
+      const targetBubbleWidth =
+        (targetInnerWidth / bubbleInnerWidthRatio) * bubbleSafetyScale;
+      const targetScaleX = Math.max(
+        0.35,
+        targetBubbleWidth / bubbleTextureWidth,
+      );
+      bubble.setScale(targetScaleX, bubbleBaseScaleY);
+
+      this.tweens.add({
+        targets: speechText,
+        alpha: 1,
+        duration: 220,
+        ease: "Sine.Out",
+        onComplete: () => {
+          const holdMs = index === lines.length - 1 ? 1500 : 1200;
+          this.time.delayedCall(holdMs, () => {
+            this.tweens.add({
+              targets: speechText,
+              alpha: 0,
+              duration: 180,
+              ease: "Sine.In",
+              onComplete: () => showLine(index + 1),
+            });
+          });
+        },
+      });
+    };
+
+    this.tweens.add({
+      targets: bubble,
+      alpha: 1,
+      duration: 240,
+      ease: "Sine.Out",
+      onComplete: () => showLine(0),
+    });
   }
 
   logPlayerPosition() {
@@ -259,6 +424,11 @@ export default class PlayScene extends Phaser.Scene {
           }
         });
         this.playKissHeartBeat();
+
+        // Step 2: after kiss hold, both run right together for a short while.
+        this.time.delayedCall(2300, () => {
+          this.startCoupleRunSequence();
+        });
       },
     });
 
@@ -297,6 +467,341 @@ export default class PlayScene extends Phaser.Scene {
         if (heart && heart.active) heart.destroy();
       },
     });
+  }
+
+  startCoupleRunSequence() {
+    if (this.endRunActive) return;
+
+    const player = this.playerController?.player;
+    if (!player || !player.active || !this.akshay || !this.akshay.active)
+      return;
+
+    this.endKissActive = false;
+    this.endRunActive = true;
+
+    player.angle = 0;
+    player.setFlipX(false);
+    player.play("run", true);
+
+    this.akshay.angle = 0;
+    this.akshay.setFlipX(false);
+    this.akshay.play("akshay-run", true);
+
+    const runDistance = 260;
+    const runDuration = 1800;
+
+    this.tweens.add({
+      targets: player,
+      x: player.x + runDistance,
+      duration: runDuration,
+      ease: "Sine.InOut",
+    });
+
+    this.tweens.add({
+      targets: this.akshay,
+      x: this.akshay.x + runDistance,
+      duration: runDuration,
+      ease: "Sine.InOut",
+      onComplete: () => {
+        this.endRunActive = false;
+        this.startPhotoSlideshowPlaceholder();
+      },
+    });
+  }
+
+  startPhotoSlideshowPlaceholder() {
+    if (this.slideshowPlaceholderActive) return;
+
+    const player = this.playerController?.player;
+    if (!player || !player.active || !this.akshay || !this.akshay.active)
+      return;
+    if (!this.slideshowPhotosReady) {
+      this.preloadSlideshowPhotos(() => {
+        this.startPhotoSlideshowPlaceholder();
+      });
+      return;
+    }
+
+    this.slideshowPlaceholderActive = true;
+
+    // Keep characters running in place while only background drifts.
+    player.setFlipX(false);
+    player.play("run", true);
+    this.akshay.setFlipX(false);
+    this.akshay.play("akshay-run", true);
+
+    if (this.backgroundManager) {
+      this.backgroundManager.setCinematicScrollSpeed(1.4);
+    }
+
+    this.createPhotoCarouselBackground();
+    this.startCarouselMessageFlow();
+    this.startFloatingHearts();
+  }
+
+  preloadSlideshowPhotos(onComplete) {
+    if (this.slideshowPhotosReady) {
+      if (typeof onComplete === "function") onComplete();
+      return;
+    }
+
+    const missingKeys = this.slideshowPhotoKeys.filter(
+      (key) => !this.textures.exists(key),
+    );
+    if (missingKeys.length === 0) {
+      this.slideshowPhotosReady = true;
+      if (typeof onComplete === "function") onComplete();
+      return;
+    }
+
+    if (typeof onComplete === "function") {
+      this.load.once("complete", onComplete);
+    }
+
+    if (this.slideshowPhotoPreloadStarted) return;
+    this.slideshowPhotoPreloadStarted = true;
+
+    missingKeys.forEach((key) => {
+      const index = this.slideshowPhotoKeys.indexOf(key);
+      this.load.image(key, `assets/photos/photo-${index + 1}.jpg`);
+    });
+
+    this.load.once("complete", () => {
+      this.slideshowPhotosReady = true;
+      this.slideshowPhotoPreloadStarted = false;
+    });
+    this.load.start();
+  }
+
+  fitCarouselImage(image, key) {
+    const source = this.textures.get(key).getSourceImage();
+    if (!source || !source.width || !source.height) return;
+
+    const maxWidth = 720;
+    const maxHeight = 470;
+    const scale = Math.min(maxWidth / source.width, maxHeight / source.height);
+
+    image.setDisplaySize(source.width * scale, source.height * scale);
+  }
+
+  createPhotoCarouselBackground() {
+    if (this.carouselPhotos.length > 0) return;
+
+    const laneY = this.cameras.main.height * 0.28;
+    const startX = this.cameras.main.width + 120;
+    const visibleCount = 15;
+
+    this.carouselPhotoIndex = 0;
+    this.carouselEndTriggered = false;
+    this.carouselLastPhotoReached = false;
+    this.carouselMessagesCompleted = false;
+    this.carouselTransitionQueued = false;
+    this.carouselSpeed = 4;
+    let nextLeftEdge = startX;
+
+    for (let i = 0; i < visibleCount; i += 1) {
+      const key = this.getNextCarouselPhotoKey();
+      if (!key) break;
+      const photo = this.add
+        .image(0, laneY, key)
+        .setDepth(-35)
+        .setScrollFactor(0)
+        .setAlpha(0.9);
+
+      this.fitCarouselImage(photo, key);
+      photo.isLastCarouselPhoto = key === this.slideshowPhotoKeys.at(-1);
+      photo.x = nextLeftEdge + photo.displayWidth * 0.5;
+      nextLeftEdge += photo.displayWidth;
+      this.carouselPhotos.push(photo);
+    }
+  }
+
+  updatePhotoCarousel(delta = 16.67) {
+    if (!this.slideshowPlaceholderActive || this.carouselPhotos.length === 0)
+      return;
+
+    const step = this.carouselSpeed * (delta / 16.67);
+    let rightmostEdge = -Infinity;
+    this.carouselPhotos.forEach((photo) => {
+      photo.x -= step;
+      const rightEdge = photo.x + photo.displayWidth * 0.5;
+      if (rightEdge > rightmostEdge) rightmostEdge = rightEdge;
+
+      if (!this.carouselEndTriggered && photo.isLastCarouselPhoto) {
+        const leftEdge = photo.x - photo.displayWidth * 0.5;
+        if (leftEdge <= this.cameras.main.width) {
+          this.carouselEndTriggered = true;
+          this.carouselLastPhotoReached = true;
+          this.tryFinishCarouselSequence();
+        }
+      }
+    });
+
+    this.carouselPhotos.forEach((photo) => {
+      const offscreenX = -photo.displayWidth * 0.5 - 40;
+      if (photo.x < offscreenX) {
+        const key = this.getNextCarouselPhotoKey();
+        if (!key) {
+          if (photo && photo.active) photo.destroy();
+          return;
+        }
+        photo.setTexture(key);
+        this.fitCarouselImage(photo, key);
+        photo.isLastCarouselPhoto = key === this.slideshowPhotoKeys.at(-1);
+        photo.x = rightmostEdge + photo.displayWidth * 0.5;
+        rightmostEdge += photo.displayWidth;
+      }
+    });
+
+    this.carouselPhotos = this.carouselPhotos.filter((photo) => photo.active);
+  }
+
+  getNextCarouselPhotoKey() {
+    if (this.carouselPhotoIndex >= this.slideshowPhotoKeys.length) return null;
+    const key = this.slideshowPhotoKeys[this.carouselPhotoIndex];
+    this.carouselPhotoIndex += 1;
+    return key;
+  }
+
+  startCarouselMessageFlow() {
+    if (this.carouselMessageText && this.carouselMessageText.active) {
+      this.carouselMessageText.destroy();
+    }
+
+    this.carouselMessageIndex = 0;
+    this.carouselMessageText = this.add
+      .text(
+        this.cameras.main.width * 0.5,
+        this.cameras.main.height * 0.94,
+        "",
+        {
+          fontSize: "40px",
+          fontFamily: "Georgia",
+          color: "#fff5f8",
+          align: "center",
+          stroke: "#000000",
+          strokeThickness: 4,
+        },
+      )
+      .setOrigin(0.5)
+      .setScrollFactor(0)
+      .setDepth(210)
+      .setAlpha(0);
+
+    this.showNextCarouselMessage();
+  }
+
+  showNextCarouselMessage() {
+    if (!this.carouselMessageText || !this.carouselMessageText.active) return;
+
+    if (this.carouselMessageIndex >= this.carouselMessages.length) {
+      this.carouselMessagesCompleted = true;
+      // If messages finish first, accelerate until the last carousel photo appears.
+      if (!this.carouselLastPhotoReached) {
+        this.carouselSpeed = Math.max(this.carouselSpeed, 14);
+      }
+      this.tryFinishCarouselSequence();
+      return;
+    }
+
+    const message = this.carouselMessages[this.carouselMessageIndex];
+    const isPenultimate =
+      this.carouselMessageIndex === this.carouselMessages.length - 2;
+    const isFinal =
+      this.carouselMessageIndex === this.carouselMessages.length - 1;
+
+    this.carouselMessageText.setText(message);
+    this.carouselMessageText.setAlpha(0);
+    this.carouselMessageText.setScale(isPenultimate ? 1.04 : 1);
+    this.carouselMessageText.setColor(isFinal ? "#ffe4ec" : "#fff5f8");
+
+    this.tweens.add({
+      targets: this.carouselMessageText,
+      alpha: 1,
+      duration: 800,
+      ease: "Sine.Out",
+      onComplete: () => {
+        const hold = isPenultimate ? 2800 : isFinal ? 3200 : 1700;
+        this.carouselMessageTimer = this.time.delayedCall(hold, () => {
+          this.tweens.add({
+            targets: this.carouselMessageText,
+            alpha: 0,
+            duration: 420,
+            ease: "Sine.In",
+            onComplete: () => {
+              this.carouselMessageIndex += 1;
+              this.showNextCarouselMessage();
+            },
+          });
+        });
+      },
+    });
+  }
+
+  startFloatingHearts() {
+    if (this.floatingHearts) return;
+
+    const { width, height } = this.cameras.main;
+    this.floatingHearts = this.add.particles(0, 0, ASSETS.ITEMS.HEART, {
+      x: { min: 80, max: width - 80 },
+      y: height + 10,
+      frequency: 220,
+      lifespan: 8000,
+      quantity: 1,
+      speedY: { min: -80, max: -45 },
+      speedX: { min: -18, max: 18 },
+      scale: { start: 0.22, end: 0.08 },
+      alpha: { start: 0.62, end: 0 },
+    });
+
+    this.floatingHearts.setDepth(205).setScrollFactor(0);
+  }
+
+  tryFinishCarouselSequence() {
+    if (this.carouselTransitionQueued) return;
+    if (!this.carouselLastPhotoReached || !this.carouselMessagesCompleted)
+      return;
+
+    this.carouselTransitionQueued = true;
+    this.startCarouselFadeOutToEndScene();
+  }
+
+  startCarouselFadeOutToEndScene() {
+    if (this.carouselFadeOutStarted) return;
+    this.carouselFadeOutStarted = true;
+
+    this.cameras.main.once("camerafadeoutcomplete", () => {
+      this.finishPhotoSlideshow();
+    });
+    this.cameras.main.fadeOut(1800, 0, 0, 0);
+  }
+
+  finishPhotoSlideshow() {
+    this.slideshowPlaceholderActive = false;
+
+    if (this.backgroundManager) {
+      this.backgroundManager.setCinematicScrollSpeed(0);
+    }
+
+    this.carouselPhotos.forEach((photo) => {
+      if (photo && photo.active) photo.destroy();
+    });
+    this.carouselPhotos = [];
+
+    if (this.carouselMessageTimer) {
+      this.carouselMessageTimer.remove(false);
+      this.carouselMessageTimer = null;
+    }
+    if (this.carouselMessageText && this.carouselMessageText.active) {
+      this.carouselMessageText.destroy();
+      this.carouselMessageText = null;
+    }
+    if (this.floatingHearts) {
+      this.floatingHearts.destroy();
+      this.floatingHearts = null;
+    }
+
+    this.scene.start("EndScene", { stars: this.starsCollected });
   }
 
   createControlInstructionsUI() {

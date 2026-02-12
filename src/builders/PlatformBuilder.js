@@ -115,6 +115,7 @@ export default class PlatformBuilder {
     // // Early game minions
     // em.spawnMinion(1300, groundTopY - 100, 250);
     // em.spawnMinion(1900, groundTopY - 100, 300);
+    // em.spawnMinion(1400, groundTopY - 100, 250);
 
     // // Mid game minions
     // em.spawnMinion(2500, groundTopY - 100, 300);

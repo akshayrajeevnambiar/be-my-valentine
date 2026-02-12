@@ -58,6 +58,7 @@ export const ASSETS = Object.freeze({
     ENERGY_BALL: "energy-ball",
     TITLE_CARD: "title-card",
     INSTRUCTION: "instruction",
+    SPEECH_BUBBLE: "speech-bubble",
     MOVEMENT_BUTTONS: "movement-buttons",
     ATTACK_BUTTON: "attack-button",
   },

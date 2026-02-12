@@ -10,6 +10,9 @@ export default class IntroScene extends Phaser.Scene {
     this.RUN_DURATION = 2800;
     this.introArrivals = 0;
     this.titleCardShown = false;
+    this.introSkipEnabled = false;
+    this.skipToGameHandler = null;
+    this.bossSpeechRunning = false;
   }
 
   preload() {
@@ -194,9 +197,18 @@ export default class IntroScene extends Phaser.Scene {
       },
     });
 
-    // --- Skip to game ---
-    this.input.keyboard.once("keydown-SPACE", () => {
-      this.scene.start("PlayScene");
+    // --- Skip to game (enabled only after instruction card lands) ---
+    this.skipToGameHandler = () => {
+      if (!this.introSkipEnabled) return;
+      this.input.keyboard.off("keydown-SPACE", this.skipToGameHandler);
+      this.scene.start("PhotoLoadingScene");
+    };
+    this.input.keyboard.on("keydown-SPACE", this.skipToGameHandler);
+
+    this.events.once("shutdown", () => {
+      if (this.skipToGameHandler) {
+        this.input.keyboard.off("keydown-SPACE", this.skipToGameHandler);
+      }
     });
 
     this.cameras.main.setAlpha(1);
@@ -231,10 +243,101 @@ export default class IntroScene extends Phaser.Scene {
         this.cameras.main.shake(180, 0.01);
         this.playImpactHop(this.theertha, -30);
         this.playImpactHop(this.akshay, 30);
-        this.time.delayedCall(3000, () => {
+        this.playBossSpeech(boss, () => {
           this.startKidnapRunOut();
         });
         console.log("[Intro] Boss dropped in between them.");
+      },
+    });
+  }
+
+  playBossSpeech(boss, onComplete) {
+    if (this.bossSpeechRunning) return;
+    this.bossSpeechRunning = true;
+
+    const lines = [
+      "I am Time.",
+      "I am Distance.",
+      "I am every obstacle between you.",
+      "If your love is strong enough...",
+      "come and take him back",
+    ];
+
+    const bubble = this.add
+      .image(boss.x - 250, boss.y - 220, ASSETS.ITEMS.SPEECH_BUBBLE)
+      .setDepth(90)
+      .setScale(0.5)
+      .setFlipX(true)
+      .setAlpha(0);
+    const bubbleBaseScaleY = 0.5;
+    const bubbleTextureWidth = bubble.width;
+    const bubbleSideOffset = 180;
+
+    const speechText = this.add
+      .text(boss.x - 250, boss.y - 235, "", {
+        fontSize: "32px",
+        fontFamily: "Arial",
+        color: "#1f1f1f",
+        align: "center",
+      })
+      .setOrigin(0.5)
+      .setDepth(91)
+      .setAlpha(0);
+
+    const showLine = (index) => {
+      if (!bubble.active || !speechText.active) return;
+      if (index >= lines.length) {
+        this.tweens.add({
+          targets: [speechText, bubble],
+          alpha: 0,
+          duration: 220,
+          onComplete: () => {
+            if (speechText && speechText.active) speechText.destroy();
+            if (bubble && bubble.active) bubble.destroy();
+            this.bossSpeechRunning = false;
+            if (typeof onComplete === "function") onComplete();
+          },
+        });
+        return;
+      }
+
+      speechText.setText(lines[index]);
+      const targetBubbleWidth = speechText.width + bubbleSideOffset * 2;
+      const targetScaleX = Math.max(
+        0.35,
+        targetBubbleWidth / bubbleTextureWidth,
+      );
+      bubble.setScale(targetScaleX, bubbleBaseScaleY);
+
+      this.tweens.add({
+        targets: speechText,
+        alpha: 1,
+        duration: 220,
+        ease: "Sine.Out",
+        onComplete: () => {
+          const holdMs = index === lines.length - 1 ? 1800 : 1300;
+          this.time.delayedCall(holdMs, () => {
+            this.tweens.add({
+              targets: speechText,
+              alpha: 0,
+              duration: 180,
+              ease: "Sine.In",
+              onComplete: () => {
+                showLine(index + 1);
+              },
+            });
+          });
+        },
+      });
+    };
+
+    this.tweens.add({
+      targets: bubble,
+      alpha: 1,
+      duration: 240,
+      ease: "Sine.Out",
+      onComplete: () => {
+        showLine(0);
       },
     });
   }
@@ -322,6 +425,9 @@ export default class IntroScene extends Phaser.Scene {
       y: titleCardFinalY + instructionOffsetY,
       duration: 2600,
       ease: "Sine.InOut",
+      onComplete: () => {
+        this.introSkipEnabled = true;
+      },
     });
   }
 
@@ -401,5 +507,9 @@ export default class IntroScene extends Phaser.Scene {
   preloadItems() {
     this.load.image(ASSETS.ITEMS.TITLE_CARD, "assets/items/title-card.png");
     this.load.image(ASSETS.ITEMS.INSTRUCTION, "assets/items/instruction.png");
+    this.load.image(
+      ASSETS.ITEMS.SPEECH_BUBBLE,
+      "assets/items/speech-bubble.png",
+    );
   }
 }

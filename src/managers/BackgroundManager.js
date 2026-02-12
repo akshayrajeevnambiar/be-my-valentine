@@ -17,6 +17,10 @@ export default class BackgroundManager {
     this.bgHills2 = null;
     this.bgTrees1 = null;
     this.bgTrees2 = null;
+
+    // Optional cinematic drift used by end cutscene/slideshow
+    this.cinematicScrollSpeed = 0;
+    this.cinematicScrollX = 0;
   }
 
   create() {
@@ -66,10 +70,21 @@ export default class BackgroundManager {
 
   update() {
     const camX = this.scene.cameras.main.scrollX;
+    this.cinematicScrollX += this.cinematicScrollSpeed;
+    const effectiveX = camX + this.cinematicScrollX;
 
-    this.loopLayer(this.bgClouds1, this.bgClouds2, camX, this.CLOUD_PARALLAX);
-    this.loopLayer(this.bgHills1, this.bgHills2, camX, this.HILLS_PARALLAX);
-    this.loopLayer(this.bgTrees1, this.bgTrees2, camX, this.TREES_PARALLAX);
+    this.loopLayer(
+      this.bgClouds1,
+      this.bgClouds2,
+      effectiveX,
+      this.CLOUD_PARALLAX,
+    );
+    this.loopLayer(this.bgHills1, this.bgHills2, effectiveX, this.HILLS_PARALLAX);
+    this.loopLayer(this.bgTrees1, this.bgTrees2, effectiveX, this.TREES_PARALLAX);
+  }
+
+  setCinematicScrollSpeed(speed = 0) {
+    this.cinematicScrollSpeed = speed;
   }
 
   loopLayer(img1, img2, camX, factor) {

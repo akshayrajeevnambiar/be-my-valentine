@@ -19,7 +19,7 @@ export default class PlayerController {
 
     this.player = this.scene.physics.add
       .sprite(
-        4400,
+        4000,
         height - this.scene.TILE_SIZE - 200,
         ASSETS.CHARACTERS.THEERTHA.IDLE,
       )
@@ -66,6 +66,12 @@ export default class PlayerController {
 
     // Lock controls during cutscene hold
     if (this.scene.cutsceneControlLocked) {
+      this.player.setVelocityX(0);
+      return;
+    }
+
+    // Lock controls during boss arena speech
+    if (this.scene.bossArenaSpeechControlLocked) {
       this.player.setVelocityX(0);
       return;
     }
@@ -117,6 +123,10 @@ export default class PlayerController {
     if (this.scene.endKissActive) {
       this.player.setFlipX(true);
       return this.playAnimation("theertha-kiss");
+    }
+    if (this.scene.endRunActive || this.scene.slideshowPlaceholderActive) {
+      this.player.setFlipX(false);
+      return this.playAnimation("run");
     }
 
     if (!onGround) return this.playAnimation("jump");

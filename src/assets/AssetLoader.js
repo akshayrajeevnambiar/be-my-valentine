@@ -137,6 +137,7 @@ export default class AssetLoader {
 
   static loadItems(scene) {
     scene.load.image(ASSETS.ITEMS.HEART, "assets/items/heart.png");
+    scene.load.image(ASSETS.ITEMS.SPEECH_BUBBLE, "assets/items/speech-bubble.png");
     scene.load.image(
       ASSETS.ITEMS.MOVEMENT_BUTTONS,
       "assets/items/movement-buttons.png",

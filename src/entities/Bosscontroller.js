@@ -32,6 +32,7 @@ export default class BossController {
     if (!this.boss || !this.boss.active) return;
     if (this.boss.isDead) return;
     if (this.boss.isBeingHit) return;
+    if (this.scene.bossArenaSpeechControlLocked) return;
 
     // Check if we should attack
     if (time - this.lastAttackTime > this.attackCooldown) {
@@ -216,30 +217,100 @@ export default class BossController {
     // Big screen shake on death
     this.scene.cameras.main.shake(800, 0.02);
 
-    // Play death sequence
-    this.scene.time.delayedCall(400, () => {
+    this.playFinalLine(() => {
       if (!this.boss || !this.boss.active) return;
 
-      this.boss.body.checkCollision.none = true;
-      this.boss.body.setCollideWorldBounds(false);
+      // Play death sequence
+      this.scene.time.delayedCall(400, () => {
+        if (!this.boss || !this.boss.active) return;
 
-      this.boss.setVelocityY(-400);
-      this.boss.setVelocityX(0);
+        this.boss.body.checkCollision.none = true;
+        this.boss.body.setCollideWorldBounds(false);
 
-      this.scene.time.delayedCall(2000, () => {
-        if (this.boss && this.boss.active) {
-          this.boss.destroy();
+        this.boss.setVelocityX(0);
+        this.boss.setVelocityY(520);
+        this.boss.play("boss-fall", true);
 
-          // Hide boss health bar with fade out
-          this.scene.hudManager.hideBossHealth();
+        this.scene.time.delayedCall(1600, () => {
+          if (this.boss && this.boss.active) {
+            this.boss.destroy();
 
-          if (typeof this.scene.onBossDefeated === "function") {
-            this.scene.onBossDefeated();
+            // Hide boss health bar with fade out
+            this.scene.hudManager.hideBossHealth();
+
+            if (typeof this.scene.onBossDefeated === "function") {
+              this.scene.onBossDefeated();
+            }
+
+            console.log("Victory!");
           }
-
-          console.log("Victory!");
-        }
+        });
       });
+    });
+  }
+
+  playFinalLine(onComplete) {
+    if (!this.boss || !this.boss.active) {
+      if (typeof onComplete === "function") onComplete();
+      return;
+    }
+
+    const line = "Even Time cannot stand against true love.";
+
+    const bubble = this.scene.add
+      .image(this.boss.x + 120, this.boss.y - 250, ASSETS.ITEMS.SPEECH_BUBBLE)
+      .setDepth(90)
+      .setScale(0.5)
+      .setFlipX(true)
+      .setAlpha(0);
+
+    const speechText = this.scene.add
+      .text(this.boss.x + 120, this.boss.y - 265, line, {
+        fontSize: "30px",
+        fontFamily: "Arial",
+        color: "#1f1f1f",
+        align: "center",
+      })
+      .setOrigin(0.5)
+      .setDepth(91)
+      .setAlpha(0);
+
+    const bubbleSideOffset = 70;
+    const targetBubbleWidth = speechText.width + bubbleSideOffset * 2;
+    const targetScaleX = Math.max(0.35, targetBubbleWidth / bubble.width);
+    bubble.setScale(targetScaleX, 0.5);
+
+    const syncEvent = this.scene.time.addEvent({
+      delay: 16,
+      loop: true,
+      callback: () => {
+        if (!this.boss || !this.boss.active || !bubble.active || !speechText.active) return;
+        bubble.setPosition(this.boss.x + 120, this.boss.y - 250);
+        speechText.setPosition(this.boss.x + 120, this.boss.y - 265);
+      },
+    });
+
+    const cleanup = () => {
+      if (syncEvent) syncEvent.remove(false);
+      if (speechText && speechText.active) speechText.destroy();
+      if (bubble && bubble.active) bubble.destroy();
+      if (typeof onComplete === "function") onComplete();
+    };
+
+    this.scene.tweens.add({
+      targets: [bubble, speechText],
+      alpha: 1,
+      duration: 260,
+      onComplete: () => {
+        this.scene.time.delayedCall(1700, () => {
+          this.scene.tweens.add({
+            targets: [bubble, speechText],
+            alpha: 0,
+            duration: 220,
+            onComplete: cleanup,
+          });
+        });
+      },
     });
   }
 
