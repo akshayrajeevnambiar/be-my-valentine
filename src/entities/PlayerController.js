@@ -1,5 +1,5 @@
-import Phaser from "phaser";
 import { ASSETS } from "../assets/asset-keys";
+import { createAudio, playAudio } from "../utils/audio";
 
 export default class PlayerController {
   constructor(scene) {
@@ -41,22 +41,19 @@ export default class PlayerController {
       this.scene.platformBuilder.platforms,
     );
 
-    if (this.scene.cache?.audio?.exists(ASSETS.SOUNDS.EFFECTS.RUNNING)) {
-      this.runningLoopSfx = this.scene.sound.add(ASSETS.SOUNDS.EFFECTS.RUNNING, {
-        loop: true,
-        volume: 0.2,
-      });
-    }
+    this.runningLoopSfx = createAudio(this.scene, ASSETS.SOUNDS.EFFECTS.RUNNING, {
+      loop: true,
+      volume: 0.2,
+    });
 
-    if (this.scene.cache?.audio?.exists(ASSETS.SOUNDS.EFFECTS.HEART_BEAT)) {
-      this.criticalHeartbeatSfx = this.scene.sound.add(
-        ASSETS.SOUNDS.EFFECTS.HEART_BEAT,
-        {
-          loop: true,
-          volume: 0.25,
-        },
-      );
-    }
+    this.criticalHeartbeatSfx = createAudio(
+      this.scene,
+      ASSETS.SOUNDS.EFFECTS.HEART_BEAT,
+      {
+        loop: true,
+        volume: 0.25,
+      },
+    );
 
     this.scene.events.once("shutdown", () => {
       this.stopRunningSfx();
@@ -273,9 +270,7 @@ export default class PlayerController {
   }
 
   playSfx(key, config = {}) {
-    if (!this.scene?.sound) return;
-    if (!this.scene.cache?.audio?.exists(key)) return;
-    this.scene.sound.play(key, config);
+    playAudio(this.scene, key, config);
   }
 
   updateRunningSfx() {

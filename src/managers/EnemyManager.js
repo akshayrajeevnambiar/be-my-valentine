@@ -1,5 +1,6 @@
 import { ASSETS } from "../assets/asset-keys";
 import BossController from "../entities/Bosscontroller";
+import { playAudio } from "../utils/audio";
 
 export default class EnemyManager {
   constructor(scene) {
@@ -267,8 +268,6 @@ export default class EnemyManager {
   }
 
   playSfx(key, config = {}) {
-    if (!this.scene?.sound) return;
-    if (!this.scene.cache?.audio?.exists(key)) return;
-    this.scene.sound.play(key, config);
+    playAudio(this.scene, key, config);
   }
 }

@@ -11,6 +11,28 @@ import CollectibleManager from "../managers/CollectibleManager";
 import HUDManager from "../managers/HUDManager";
 import CollisionManager from "../managers/CollisionManager";
 import { ASSETS } from "../assets/asset-keys";
+import {
+  finishPhotoSlideshow as finishPhotoSlideshowImpl,
+  fitCarouselImage as fitCarouselImageImpl,
+  getNextCarouselPhotoKey as getNextCarouselPhotoKeyImpl,
+  preloadSlideshowPhotos as preloadSlideshowPhotosImpl,
+  showNextCarouselMessage as showNextCarouselMessageImpl,
+  startCarouselFadeOutToEndScene as startCarouselFadeOutToEndSceneImpl,
+  startCarouselMessageFlow as startCarouselMessageFlowImpl,
+  startFloatingHearts as startFloatingHeartsImpl,
+  startPhotoSlideshowPlaceholder as startPhotoSlideshowPlaceholderImpl,
+  tryFinishCarouselSequence as tryFinishCarouselSequenceImpl,
+  updatePhotoCarousel as updatePhotoCarouselImpl,
+  createPhotoCarouselBackground as createPhotoCarouselBackgroundImpl,
+} from "./play/slideshow";
+import {
+  playMusic as playMusicImpl,
+  playSfx as playSfxImpl,
+  playGameOverBgMusic as playGameOverBgMusicImpl,
+  stopCurrentMusic as stopCurrentMusicImpl,
+  stopGameOverBgMusic as stopGameOverBgMusicImpl,
+} from "./play/audio";
+import { showGameOver } from "./play/game-over";
 
 export default class PlayScene extends Phaser.Scene {
   constructor() {
@@ -52,7 +74,6 @@ export default class PlayScene extends Phaser.Scene {
     this.gameOverBgMusic = null;
     this.gameOverActive = false;
     this.gameOverCard = null;
-    this.gameOverRestartText = null;
     this.gameOverRestartHandler = null;
     this.carouselMessageText = null;
     this.carouselMessageIndex = 0;
@@ -334,11 +355,6 @@ export default class PlayScene extends Phaser.Scene {
     return { x: player.x, y: player.y };
   }
 
-  logWorldWidth() {
-    console.log(`World Width: ${Math.floor(this.worldWidth)}`);
-    return this.worldWidth;
-  }
-
   logWorldBoundsWidth() {
     const boundsWidth = this.physics.world.bounds.width;
     console.log(`World Bounds Width: ${Math.floor(boundsWidth)}`);
@@ -548,299 +564,51 @@ export default class PlayScene extends Phaser.Scene {
   }
 
   startPhotoSlideshowPlaceholder() {
-    if (this.slideshowPlaceholderActive) return;
-
-    const player = this.playerController?.player;
-    if (!player || !player.active || !this.akshay || !this.akshay.active)
-      return;
-    if (!this.slideshowPhotosReady) {
-      this.preloadSlideshowPhotos(() => {
-        this.startPhotoSlideshowPlaceholder();
-      });
-      return;
-    }
-
-    this.slideshowPlaceholderActive = true;
-
-    // Keep characters running in place while only background drifts.
-    player.setFlipX(false);
-    player.play("run", true);
-    this.akshay.setFlipX(false);
-    this.akshay.play("akshay-run", true);
-
-    if (this.backgroundManager) {
-      this.backgroundManager.setCinematicScrollSpeed(1.4);
-    }
-
-    this.createPhotoCarouselBackground();
-    this.startCarouselMessageFlow();
-    this.startFloatingHearts();
+    startPhotoSlideshowPlaceholderImpl(this);
   }
 
   preloadSlideshowPhotos(onComplete) {
-    if (this.slideshowPhotosReady) {
-      if (typeof onComplete === "function") onComplete();
-      return;
-    }
-
-    const missingKeys = this.slideshowPhotoKeys.filter(
-      (key) => !this.textures.exists(key),
-    );
-    if (missingKeys.length === 0) {
-      this.slideshowPhotosReady = true;
-      if (typeof onComplete === "function") onComplete();
-      return;
-    }
-
-    if (typeof onComplete === "function") {
-      this.load.once("complete", onComplete);
-    }
-
-    if (this.slideshowPhotoPreloadStarted) return;
-    this.slideshowPhotoPreloadStarted = true;
-
-    missingKeys.forEach((key) => {
-      const index = this.slideshowPhotoKeys.indexOf(key);
-      this.load.image(key, `assets/photos/photo-${index + 1}.jpg`);
-    });
-
-    this.load.once("complete", () => {
-      this.slideshowPhotosReady = true;
-      this.slideshowPhotoPreloadStarted = false;
-    });
-    this.load.start();
+    preloadSlideshowPhotosImpl(this, onComplete);
   }
 
   fitCarouselImage(image, key) {
-    const source = this.textures.get(key).getSourceImage();
-    if (!source || !source.width || !source.height) return;
-
-    const maxWidth = 720;
-    const maxHeight = 470;
-    const scale = Math.min(maxWidth / source.width, maxHeight / source.height);
-
-    image.setDisplaySize(source.width * scale, source.height * scale);
+    fitCarouselImageImpl(this, image, key);
   }
 
   createPhotoCarouselBackground() {
-    if (this.carouselPhotos.length > 0) return;
-
-    const laneY = this.cameras.main.height * 0.28;
-    const startX = this.cameras.main.width + 120;
-    const visibleCount = 15;
-
-    this.carouselPhotoIndex = 0;
-    this.carouselEndTriggered = false;
-    this.carouselLastPhotoReached = false;
-    this.carouselMessagesCompleted = false;
-    this.carouselTransitionQueued = false;
-    this.carouselSpeed = 4;
-    let nextLeftEdge = startX;
-
-    for (let i = 0; i < visibleCount; i += 1) {
-      const key = this.getNextCarouselPhotoKey();
-      if (!key) break;
-      const photo = this.add
-        .image(0, laneY, key)
-        .setDepth(-35)
-        .setScrollFactor(0)
-        .setAlpha(0.9);
-
-      this.fitCarouselImage(photo, key);
-      photo.isLastCarouselPhoto = key === this.slideshowPhotoKeys.at(-1);
-      photo.x = nextLeftEdge + photo.displayWidth * 0.5;
-      nextLeftEdge += photo.displayWidth;
-      this.carouselPhotos.push(photo);
-    }
+    createPhotoCarouselBackgroundImpl(this);
   }
 
   updatePhotoCarousel(delta = 16.67) {
-    if (!this.slideshowPlaceholderActive || this.carouselPhotos.length === 0)
-      return;
-
-    const step = this.carouselSpeed * (delta / 16.67);
-    let rightmostEdge = -Infinity;
-    this.carouselPhotos.forEach((photo) => {
-      photo.x -= step;
-      const rightEdge = photo.x + photo.displayWidth * 0.5;
-      if (rightEdge > rightmostEdge) rightmostEdge = rightEdge;
-
-      if (!this.carouselEndTriggered && photo.isLastCarouselPhoto) {
-        const leftEdge = photo.x - photo.displayWidth * 0.5;
-        if (leftEdge <= this.cameras.main.width) {
-          this.carouselEndTriggered = true;
-          this.carouselLastPhotoReached = true;
-          this.tryFinishCarouselSequence();
-        }
-      }
-    });
-
-    this.carouselPhotos.forEach((photo) => {
-      const offscreenX = -photo.displayWidth * 0.5 - 40;
-      if (photo.x < offscreenX) {
-        const key = this.getNextCarouselPhotoKey();
-        if (!key) {
-          if (photo && photo.active) photo.destroy();
-          return;
-        }
-        photo.setTexture(key);
-        this.fitCarouselImage(photo, key);
-        photo.isLastCarouselPhoto = key === this.slideshowPhotoKeys.at(-1);
-        photo.x = rightmostEdge + photo.displayWidth * 0.5;
-        rightmostEdge += photo.displayWidth;
-      }
-    });
-
-    this.carouselPhotos = this.carouselPhotos.filter((photo) => photo.active);
+    updatePhotoCarouselImpl(this, delta);
   }
 
   getNextCarouselPhotoKey() {
-    if (this.carouselPhotoIndex >= this.slideshowPhotoKeys.length) return null;
-    const key = this.slideshowPhotoKeys[this.carouselPhotoIndex];
-    this.carouselPhotoIndex += 1;
-    return key;
+    return getNextCarouselPhotoKeyImpl(this);
   }
 
   startCarouselMessageFlow() {
-    if (this.carouselMessageText && this.carouselMessageText.active) {
-      this.carouselMessageText.destroy();
-    }
-
-    this.carouselMessageIndex = 0;
-    this.carouselMessageText = this.add
-      .text(
-        this.cameras.main.width * 0.5,
-        this.cameras.main.height * 0.94,
-        "",
-        {
-          fontSize: "40px",
-          fontFamily: "Georgia",
-          color: "#fff5f8",
-          align: "center",
-          stroke: "#000000",
-          strokeThickness: 4,
-        },
-      )
-      .setOrigin(0.5)
-      .setScrollFactor(0)
-      .setDepth(210)
-      .setAlpha(0);
-
-    this.showNextCarouselMessage();
+    startCarouselMessageFlowImpl(this);
   }
 
   showNextCarouselMessage() {
-    if (!this.carouselMessageText || !this.carouselMessageText.active) return;
-
-    if (this.carouselMessageIndex >= this.carouselMessages.length) {
-      this.carouselMessagesCompleted = true;
-      // If messages finish first, accelerate until the last carousel photo appears.
-      if (!this.carouselLastPhotoReached) {
-        this.carouselSpeed = Math.max(this.carouselSpeed, 14);
-      }
-      this.tryFinishCarouselSequence();
-      return;
-    }
-
-    const message = this.carouselMessages[this.carouselMessageIndex];
-    const isPenultimate =
-      this.carouselMessageIndex === this.carouselMessages.length - 2;
-    const isFinal =
-      this.carouselMessageIndex === this.carouselMessages.length - 1;
-
-    this.carouselMessageText.setText(message);
-    this.carouselMessageText.setAlpha(0);
-    this.carouselMessageText.setScale(isPenultimate ? 1.04 : 1);
-    this.carouselMessageText.setColor(isFinal ? "#ffe4ec" : "#fff5f8");
-
-    this.tweens.add({
-      targets: this.carouselMessageText,
-      alpha: 1,
-      duration: 800,
-      ease: "Sine.Out",
-      onComplete: () => {
-        const hold = isPenultimate ? 2800 : isFinal ? 3200 : 1700;
-        this.carouselMessageTimer = this.time.delayedCall(hold, () => {
-          this.tweens.add({
-            targets: this.carouselMessageText,
-            alpha: 0,
-            duration: 420,
-            ease: "Sine.In",
-            onComplete: () => {
-              this.carouselMessageIndex += 1;
-              this.showNextCarouselMessage();
-            },
-          });
-        });
-      },
-    });
+    showNextCarouselMessageImpl(this);
   }
 
   startFloatingHearts() {
-    if (this.floatingHearts) return;
-
-    const { width, height } = this.cameras.main;
-    this.floatingHearts = this.add.particles(0, 0, ASSETS.ITEMS.HEART, {
-      x: { min: 80, max: width - 80 },
-      y: height + 10,
-      frequency: 220,
-      lifespan: 8000,
-      quantity: 1,
-      speedY: { min: -80, max: -45 },
-      speedX: { min: -18, max: 18 },
-      scale: { start: 0.22, end: 0.08 },
-      alpha: { start: 0.62, end: 0 },
-    });
-
-    this.floatingHearts.setDepth(205).setScrollFactor(0);
+    startFloatingHeartsImpl(this);
   }
 
   tryFinishCarouselSequence() {
-    if (this.carouselTransitionQueued) return;
-    if (!this.carouselLastPhotoReached || !this.carouselMessagesCompleted)
-      return;
-
-    this.carouselTransitionQueued = true;
-    this.startCarouselFadeOutToEndScene();
+    tryFinishCarouselSequenceImpl(this);
   }
 
   startCarouselFadeOutToEndScene() {
-    if (this.carouselFadeOutStarted) return;
-    this.carouselFadeOutStarted = true;
-
-    this.cameras.main.once("camerafadeoutcomplete", () => {
-      this.finishPhotoSlideshow();
-    });
-    this.cameras.main.fadeOut(1800, 0, 0, 0);
+    startCarouselFadeOutToEndSceneImpl(this);
   }
 
   finishPhotoSlideshow() {
-    this.slideshowPlaceholderActive = false;
-    this.stopCurrentMusic();
-
-    if (this.backgroundManager) {
-      this.backgroundManager.setCinematicScrollSpeed(0);
-    }
-
-    this.carouselPhotos.forEach((photo) => {
-      if (photo && photo.active) photo.destroy();
-    });
-    this.carouselPhotos = [];
-
-    if (this.carouselMessageTimer) {
-      this.carouselMessageTimer.remove(false);
-      this.carouselMessageTimer = null;
-    }
-    if (this.carouselMessageText && this.carouselMessageText.active) {
-      this.carouselMessageText.destroy();
-      this.carouselMessageText = null;
-    }
-    if (this.floatingHearts) {
-      this.floatingHearts.destroy();
-      this.floatingHearts = null;
-    }
-
-    this.scene.start("EndScene", { stars: this.starsCollected });
+    finishPhotoSlideshowImpl(this);
   }
 
   createControlInstructionsUI() {
@@ -874,95 +642,26 @@ export default class PlayScene extends Phaser.Scene {
   }
 
   gameOver() {
-    if (this.gameOverActive) return;
-    this.gameOverActive = true;
-
-    console.log("Game Over!");
-    this.stopCurrentMusic();
-    this.playGameOverBgMusic();
-
-    if (this.physics?.world) {
-      this.physics.world.pause();
-    }
-
-    this.hideControlInstructionsUI();
-
-    const cam = this.cameras.main;
-    const targetY = cam.height * 0.5;
-
-    this.gameOverCard = this.add
-      .image(cam.width * 0.5, -220, ASSETS.ITEMS.GAME_OVER_CARD)
-      .setScrollFactor(0)
-      .setDepth(1000)
-      .setScale(2)
-      .setAlpha(0.98);
-
-    this.tweens.add({
-      targets: this.gameOverCard,
-      y: targetY,
-      duration: 1500,
-      ease: "Cubic.Out",
-    });
-
-    this.gameOverRestartHandler = () => {
-      this.input.keyboard.off("keydown-R", this.gameOverRestartHandler);
-      this.stopGameOverBgMusic();
-      this.scene.restart();
-    };
-    this.input.keyboard.on("keydown-R", this.gameOverRestartHandler);
+    showGameOver(this);
   }
 
   playMusic(key, config = {}) {
-    if (!this.registry.get("musicUnlocked")) return;
-    if (!this.sound || !this.cache?.audio?.exists(key)) return;
-    const { volume = 0.3, loop = true } = config;
-
-    if (this.currentMusic && this.currentMusicKey === key) {
-      if (!this.currentMusic.isPlaying) {
-        this.currentMusic.play();
-      }
-      return;
-    }
-
-    this.stopCurrentMusic();
-    this.currentMusic = this.sound.add(key, { volume, loop });
-    this.currentMusicKey = key;
-    this.currentMusic.play();
+    playMusicImpl(this, key, config);
   }
 
   stopCurrentMusic() {
-    if (this.currentMusic) {
-      this.currentMusic.stop();
-      this.currentMusic.destroy();
-      this.currentMusic = null;
-      this.currentMusicKey = null;
-    }
+    stopCurrentMusicImpl(this);
   }
 
   playGameOverBgMusic() {
-    if (!this.sound || !this.cache?.audio?.exists(ASSETS.SOUNDS.MUSIC.GAME_OVER_BG))
-      return;
-    if (this.gameOverBgMusic) {
-      if (!this.gameOverBgMusic.isPlaying) this.gameOverBgMusic.play();
-      return;
-    }
-    this.gameOverBgMusic = this.sound.add(ASSETS.SOUNDS.MUSIC.GAME_OVER_BG, {
-      volume: 0.34,
-      loop: true,
-    });
-    this.gameOverBgMusic.play();
+    playGameOverBgMusicImpl(this);
   }
 
   stopGameOverBgMusic() {
-    if (this.gameOverBgMusic) {
-      this.gameOverBgMusic.stop();
-      this.gameOverBgMusic.destroy();
-      this.gameOverBgMusic = null;
-    }
+    stopGameOverBgMusicImpl(this);
   }
 
   playSfx(key, config = {}) {
-    if (!this.sound || !this.cache?.audio?.exists(key)) return;
-    this.sound.play(key, config);
+    playSfxImpl(this, key, config);
   }
 }

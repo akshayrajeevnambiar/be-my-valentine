@@ -1,4 +1,5 @@
 import { ASSETS } from "../assets/asset-keys";
+import { playAudio } from "../utils/audio";
 
 export default class BossController {
   constructor(scene, boss) {
@@ -329,8 +330,6 @@ export default class BossController {
   }
 
   playSfx(key, config = {}) {
-    if (!this.scene?.sound) return;
-    if (!this.scene.cache?.audio?.exists(key)) return;
-    this.scene.sound.play(key, config);
+    playAudio(this.scene, key, config);
   }
 }

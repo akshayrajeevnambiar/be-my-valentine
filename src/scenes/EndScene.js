@@ -1,5 +1,6 @@
 import Phaser from "phaser";
 import { ASSETS } from "../assets/asset-keys";
+import { playAudio } from "../utils/audio";
 
 export default class EndScene extends Phaser.Scene {
   constructor() {
@@ -8,12 +9,8 @@ export default class EndScene extends Phaser.Scene {
 
   create() {
     const { width, height } = this.cameras.main;
-    if (this.cache?.audio?.exists(ASSETS.SOUNDS.MUSIC.VICTORY)) {
-      this.sound.play(ASSETS.SOUNDS.MUSIC.VICTORY, { volume: 0.35, loop: true });
-    }
-    if (this.cache?.audio?.exists(ASSETS.SOUNDS.EFFECTS.WIN)) {
-      this.sound.play(ASSETS.SOUNDS.EFFECTS.WIN, { volume: 0.6 });
-    }
+    playAudio(this, ASSETS.SOUNDS.MUSIC.VICTORY, { volume: 0.35, loop: true });
+    playAudio(this, ASSETS.SOUNDS.EFFECTS.WIN, { volume: 0.6 });
 
     // Ending message
     this.add
@@ -73,7 +70,7 @@ export default class EndScene extends Phaser.Scene {
 
     // Restart on R
     this.input.keyboard.once("keydown-R", () => {
-      this.scene.start("TitleScene");
+      this.scene.start("IntroScene");
     });
   }
 }

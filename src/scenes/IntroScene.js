@@ -1,5 +1,18 @@
 import Phaser from "phaser";
 import { ASSETS } from "../assets/asset-keys";
+import {
+  preloadBackgroundAssets,
+  preloadCharacterAssets,
+  preloadItemAssets,
+  preloadSoundAssets,
+  preloadTileAssets,
+} from "./intro/preload";
+import {
+  introPlayMusic,
+  introPlaySfx,
+  introStopMusic,
+  introTryPlayPendingMusic,
+} from "./intro/audio";
 
 export default class IntroScene extends Phaser.Scene {
   constructor() {
@@ -25,11 +38,11 @@ export default class IntroScene extends Phaser.Scene {
   }
 
   preload() {
-    this.preloadBackgrounds();
-    this.preloadCharacters();
-    this.preloadTiles();
-    this.preloadItems();
-    this.preloadSounds();
+    preloadBackgroundAssets(this);
+    preloadCharacterAssets(this);
+    preloadTileAssets(this);
+    preloadItemAssets(this);
+    preloadSoundAssets(this);
   }
 
   create() {
@@ -224,10 +237,10 @@ export default class IntroScene extends Phaser.Scene {
           this.introSequenceLaunched = true;
           this.startIntroSequence();
           // Retry queued intro music shortly after unlocking.
-          this.time.delayedCall(120, () => this.tryPlayPendingIntroMusic());
-          this.time.delayedCall(300, () => this.tryPlayPendingIntroMusic());
+          this.time.delayedCall(120, () => introTryPlayPendingMusic(this));
+          this.time.delayedCall(300, () => introTryPlayPendingMusic(this));
         } else {
-          this.tryPlayPendingIntroMusic();
+          introTryPlayPendingMusic(this);
         }
       };
 
@@ -274,7 +287,7 @@ export default class IntroScene extends Phaser.Scene {
       if (this.introStartPrompt && this.introStartPrompt.active) {
         this.introStartPrompt.destroy();
       }
-      this.stopIntroMusic();
+      introStopMusic(this);
     });
 
     this.cameras.main.setAlpha(1);
@@ -544,153 +557,11 @@ export default class IntroScene extends Phaser.Scene {
     });
   }
 
-  // -----------------------
-  // PRELOAD HELPERS
-  // -----------------------
-  preloadBackgrounds() {
-    this.load.image(
-      ASSETS.BACKGROUNDS.NATURE.SKY,
-      "assets/enviroment/backgrounds/nature/sky.png",
-    );
-    this.load.image(
-      ASSETS.BACKGROUNDS.NATURE.HILLS,
-      "assets/enviroment/backgrounds/nature/hills.png",
-    );
-    this.load.image(
-      ASSETS.BACKGROUNDS.NATURE.TREES,
-      "assets/enviroment/backgrounds/nature/trees.png",
-    );
-    this.load.image(
-      ASSETS.BACKGROUNDS.NATURE.CLOUDS,
-      "assets/enviroment/backgrounds/nature/clouds.png",
-    );
-  }
-
-  preloadCharacters() {
-    this.load.spritesheet(
-      ASSETS.CHARACTERS.THEERTHA.RUN,
-      "assets/characters/theertha/run.png",
-      { frameWidth: 256, frameHeight: 256 },
-    );
-
-    this.load.spritesheet(
-      ASSETS.CHARACTERS.THEERTHA.IDLE,
-      "assets/characters/theertha/idle.png",
-      { frameWidth: 256, frameHeight: 256 },
-    );
-
-    this.load.spritesheet(
-      ASSETS.CHARACTERS.THEERTHA.LOVE,
-      "assets/characters/theertha/love.png",
-      { frameWidth: 256, frameHeight: 256 },
-    );
-
-    this.load.spritesheet(
-      ASSETS.CHARACTERS.AKSHAY.RUN,
-      "assets/characters/akshay/run.png",
-      { frameWidth: 256, frameHeight: 256 },
-    );
-
-    this.load.spritesheet(
-      ASSETS.CHARACTERS.AKSHAY.LOVE,
-      "assets/characters/akshay/love.png",
-      { frameWidth: 256, frameHeight: 256 },
-    );
-
-    this.load.spritesheet(
-      ASSETS.CHARACTERS.AKSHAY.IDLE,
-      "assets/characters/akshay/idle.png",
-      { frameWidth: 256, frameHeight: 256 },
-    );
-
-    this.load.spritesheet(
-      ASSETS.CHARACTERS.BOSS.IDLE,
-      "assets/characters/enemies/boss/idle.png",
-      { frameWidth: 256, frameHeight: 256 },
-    );
-  }
-
-  preloadTiles() {
-    this.load.image(
-      ASSETS.TILESETS.GRASS_GROUND.MIDDLE,
-      "assets/enviroment/tilesets/grass-tile-middle.png",
-    );
-  }
-
-  preloadItems() {
-    this.load.image(ASSETS.ITEMS.TITLE_CARD, "assets/items/title-card.png");
-    this.load.image(ASSETS.ITEMS.INSTRUCTION, "assets/items/instruction.png");
-    this.load.image(
-      ASSETS.ITEMS.SPEECH_BUBBLE,
-      "assets/items/speech-bubble.png",
-    );
-  }
-
-  preloadSounds() {
-    this.load.audio(
-      ASSETS.SOUNDS.MUSIC.BOSS_INTRO,
-      "assets/sounds/bg-music/boss-intro.mp3",
-    );
-    this.load.audio(
-      ASSETS.SOUNDS.MUSIC.END_CUTSCENE,
-      "assets/sounds/bg-music/end-cutscene.mp3",
-    );
-    this.load.audio(
-      ASSETS.SOUNDS.MUSIC.TITLE_CARD,
-      "assets/sounds/bg-music/title-card.mp3",
-    );
-    this.load.audio(
-      ASSETS.SOUNDS.EFFECTS.GAME_START,
-      "assets/sounds/effects/game-start.mp3",
-    );
-  }
-
   playSfx(key, config = {}) {
-    if (!this.sound || !this.cache?.audio?.exists(key)) return;
-    this.sound.play(key, config);
+    introPlaySfx(this, key, config);
   }
 
   playIntroMusic(key, config = {}) {
-    if (!this.sound || !this.cache?.audio?.exists(key)) return;
-    const { volume = 0.4, loop = true } = config;
-    const ctx = this.sound?.context;
-    const audioBlocked =
-      this.sound.locked || (ctx && ctx.state && ctx.state !== "running");
-
-    if (audioBlocked) {
-      this.pendingIntroMusicKey = key;
-      this.pendingIntroMusicConfig = { volume, loop };
-      return;
-    }
-
-    if (this.currentIntroMusic && this.currentIntroMusicKey === key) {
-      if (!this.currentIntroMusic.isPlaying) {
-        this.currentIntroMusic.play();
-      }
-      return;
-    }
-
-    this.stopIntroMusic();
-    this.currentIntroMusic = this.sound.add(key, { volume, loop });
-    this.currentIntroMusicKey = key;
-    this.currentIntroMusic.play();
-  }
-
-  tryPlayPendingIntroMusic() {
-    if (!this.pendingIntroMusicKey) return;
-    const key = this.pendingIntroMusicKey;
-    const config = this.pendingIntroMusicConfig || {};
-    this.pendingIntroMusicKey = null;
-    this.pendingIntroMusicConfig = null;
-    this.playIntroMusic(key, config);
-  }
-
-  stopIntroMusic() {
-    if (this.currentIntroMusic) {
-      this.currentIntroMusic.stop();
-      this.currentIntroMusic.destroy();
-      this.currentIntroMusic = null;
-      this.currentIntroMusicKey = null;
-    }
+    introPlayMusic(this, key, config);
   }
 }
