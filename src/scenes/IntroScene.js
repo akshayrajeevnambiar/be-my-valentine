@@ -8,12 +8,15 @@ export default class IntroScene extends Phaser.Scene {
 
     // Slower run (bigger = slower)
     this.RUN_DURATION = 2800;
+    this.introArrivals = 0;
+    this.titleCardShown = false;
   }
 
   preload() {
     this.preloadBackgrounds();
     this.preloadCharacters();
     this.preloadTiles();
+    this.preloadItems();
   }
 
   create() {
@@ -62,11 +65,11 @@ export default class IntroScene extends Phaser.Scene {
     }
 
     // --- Animations ---
-    if (!this.anims.exists("theertha-run")) {
+    if (!this.anims.exists("theertha-love")) {
       this.anims.create({
-        key: "theertha-run",
+        key: "theertha-love",
         frames: this.anims.generateFrameNumbers(
-          ASSETS.CHARACTERS.THEERTHA.RUN,
+          ASSETS.CHARACTERS.THEERTHA.LOVE,
           {
             start: 0,
             end: 24,
@@ -104,10 +107,34 @@ export default class IntroScene extends Phaser.Scene {
       });
     }
 
+    if (!this.anims.exists("akshay-love")) {
+      this.anims.create({
+        key: "akshay-love",
+        frames: this.anims.generateFrameNumbers(ASSETS.CHARACTERS.AKSHAY.LOVE, {
+          start: 0,
+          end: 24,
+        }),
+        frameRate: 24,
+        repeat: -1,
+      });
+    }
+
     if (!this.anims.exists("akshay-idle")) {
       this.anims.create({
         key: "akshay-idle",
         frames: this.anims.generateFrameNumbers(ASSETS.CHARACTERS.AKSHAY.IDLE, {
+          start: 0,
+          end: 24,
+        }),
+        frameRate: 24,
+        repeat: -1,
+      });
+    }
+
+    if (!this.anims.exists("boss-idle")) {
+      this.anims.create({
+        key: "boss-idle",
+        frames: this.anims.generateFrameNumbers(ASSETS.CHARACTERS.BOSS.IDLE, {
           start: 0,
           end: 24,
         }),
@@ -121,24 +148,26 @@ export default class IntroScene extends Phaser.Scene {
 
     // Theertha from LEFT
     this.theertha = this.add
-      .sprite(-150, groundY, ASSETS.CHARACTERS.THEERTHA.RUN)
+      .sprite(-150, groundY, ASSETS.CHARACTERS.THEERTHA.LOVE)
       .setScale(0.6)
       .setDepth(20);
 
-    this.theertha.play("theertha-run");
+    this.theertha.play("theertha-love");
 
     // Akshay from RIGHT (flip so he's facing left)
     this.akshay = this.add
-      .sprite(width + 150, groundY, ASSETS.CHARACTERS.AKSHAY.RUN)
-      .setScale(0.6)
-      .setFlipX(true)
+      .sprite(width + 150, groundY - 20, ASSETS.CHARACTERS.AKSHAY.LOVE)
+      .setScale(0.8)
+      .setFlipX(false)
       .setDepth(20);
 
-    this.akshay.play("akshay-run");
+    this.akshay.play("akshay-love");
 
     // --- Run to near-center (leave some gap between them) ---
     const theerthaStopX = width * 0.5 - 200; // left side of center
     const akshayStopX = width * 0.5 + 200; // right side of center
+    const bossLandingX = (theerthaStopX + akshayStopX) / 2;
+    const bossLandingY = groundY - 110;
 
     this.tweens.add({
       targets: this.theertha,
@@ -147,6 +176,7 @@ export default class IntroScene extends Phaser.Scene {
       ease: "Sine.Out",
       onComplete: () => {
         this.theertha.play("theertha-idle", true);
+        this.onIntroCharacterArrived(bossLandingX, bossLandingY);
       },
     });
 
@@ -156,7 +186,11 @@ export default class IntroScene extends Phaser.Scene {
       duration: this.RUN_DURATION,
       ease: "Sine.Out",
       onComplete: () => {
+        this.akshay.setFlipX(true);
         this.akshay.play("akshay-idle", true);
+        this.akshay.setScale(0.7);
+        this.akshay.y = groundY - 7;
+        this.onIntroCharacterArrived(bossLandingX, bossLandingY);
       },
     });
 
@@ -170,6 +204,125 @@ export default class IntroScene extends Phaser.Scene {
 
   update() {
     if (this.bgClouds) this.bgClouds.tilePositionX += 0.2;
+  }
+
+  onIntroCharacterArrived(bossLandingX, bossLandingY) {
+    this.introArrivals += 1;
+    if (this.introArrivals < 2) return;
+
+    this.startBossDrop(bossLandingX, bossLandingY);
+  }
+
+  startBossDrop(landingX, landingY) {
+    const boss = this.add
+      .sprite(landingX, -250, ASSETS.CHARACTERS.BOSS.IDLE)
+      .setScale(1.5)
+      .setFlipX(true)
+      .setDepth(25);
+
+    boss.play("boss-idle", true);
+
+    this.tweens.add({
+      targets: boss,
+      y: landingY,
+      duration: 900,
+      ease: "Cubic.In",
+      onComplete: () => {
+        this.cameras.main.shake(180, 0.01);
+        this.playImpactHop(this.theertha, -30);
+        this.playImpactHop(this.akshay, 30);
+        this.time.delayedCall(3000, () => {
+          this.startKidnapRunOut();
+        });
+        console.log("[Intro] Boss dropped in between them.");
+      },
+    });
+  }
+
+  playImpactHop(character, xKnockback) {
+    if (!character || !character.active) return;
+
+    const startX = character.x;
+    const startY = character.y;
+
+    this.tweens.add({
+      targets: character,
+      x: startX + xKnockback,
+      y: startY - 45,
+      duration: 140,
+      ease: "Cubic.Out",
+      onComplete: () => {
+        this.tweens.add({
+          targets: character,
+          x: startX,
+          y: startY,
+          duration: 280,
+          ease: "Bounce.Out",
+        });
+      },
+    });
+  }
+
+  startKidnapRunOut() {
+    if (!this.akshay || !this.akshay.active) return;
+
+    const boss = this.children.list.find(
+      (child) =>
+        child.texture && child.texture.key === ASSETS.CHARACTERS.BOSS.IDLE,
+    );
+    if (!boss || !boss.active) return;
+
+    boss.setFlipX(false);
+    // Keep Akshay in run animation while being taken away
+    this.akshay.setFlipX(false);
+    this.akshay.play("akshay-run", true);
+
+    // Boss + Akshay move together off-screen to the right
+    const exitX = this.cameras.main.width + 400;
+
+    this.tweens.add({
+      targets: [boss, this.akshay],
+      x: exitX,
+      duration: 1800,
+      ease: "Sine.In",
+      onComplete: () => {
+        if (boss && boss.active) boss.destroy();
+        if (this.akshay && this.akshay.active) this.akshay.destroy();
+        this.dropTitleCard();
+        console.log("[Intro] Boss kidnapped Akshay and ran out.");
+      },
+    });
+  }
+
+  dropTitleCard() {
+    if (this.titleCardShown) return;
+    this.titleCardShown = true;
+
+    const { width, height } = this.cameras.main;
+    const titleCardFinalY = height * 0.38;
+    const instructionOffsetY = 150;
+    const titleCard = this.add
+      .image(width / 2, -100, ASSETS.ITEMS.TITLE_CARD)
+      .setDepth(80)
+      .setScale(0.5);
+    const instructionCard = this.add
+      .image(width / 2, -20, ASSETS.ITEMS.INSTRUCTION)
+      .setDepth(79)
+      .setScale(0.3);
+
+    this.tweens.add({
+      targets: titleCard,
+      y: titleCardFinalY,
+      duration: 2600,
+      ease: "Sine.InOut",
+    });
+
+    this.tweens.add({
+      targets: instructionCard,
+      y: titleCardFinalY + instructionOffsetY,
+      duration: 2600,
+      ease: "Sine.InOut",
+    });
   }
 
   // -----------------------
@@ -208,14 +361,32 @@ export default class IntroScene extends Phaser.Scene {
     );
 
     this.load.spritesheet(
+      ASSETS.CHARACTERS.THEERTHA.LOVE,
+      "assets/characters/theertha/love.png",
+      { frameWidth: 256, frameHeight: 256 },
+    );
+
+    this.load.spritesheet(
       ASSETS.CHARACTERS.AKSHAY.RUN,
       "assets/characters/akshay/run.png",
       { frameWidth: 256, frameHeight: 256 },
     );
 
     this.load.spritesheet(
+      ASSETS.CHARACTERS.AKSHAY.LOVE,
+      "assets/characters/akshay/love.png",
+      { frameWidth: 256, frameHeight: 256 },
+    );
+
+    this.load.spritesheet(
       ASSETS.CHARACTERS.AKSHAY.IDLE,
       "assets/characters/akshay/idle.png",
+      { frameWidth: 256, frameHeight: 256 },
+    );
+
+    this.load.spritesheet(
+      ASSETS.CHARACTERS.BOSS.IDLE,
+      "assets/characters/enemies/boss/idle.png",
       { frameWidth: 256, frameHeight: 256 },
     );
   }
@@ -225,5 +396,10 @@ export default class IntroScene extends Phaser.Scene {
       ASSETS.TILESETS.GRASS_GROUND.MIDDLE,
       "assets/enviroment/tilesets/grass-tile-middle.png",
     );
+  }
+
+  preloadItems() {
+    this.load.image(ASSETS.ITEMS.TITLE_CARD, "assets/items/title-card.png");
+    this.load.image(ASSETS.ITEMS.INSTRUCTION, "assets/items/instruction.png");
   }
 }

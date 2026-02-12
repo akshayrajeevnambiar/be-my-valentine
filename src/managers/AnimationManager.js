@@ -7,6 +7,7 @@ export default class AnimationManager {
 
   createAll() {
     this.createPlayerAnimations();
+    this.createAkshayAnimations();
     this.createMinionAnimations();
     this.createBossAnimations();
     this.createItemAnimations();
@@ -34,6 +35,16 @@ export default class AnimationManager {
     });
 
     this.scene.anims.create({
+      key: "love",
+      frames: this.scene.anims.generateFrameNumbers(
+        ASSETS.CHARACTERS.THEERTHA.LOVE,
+        { start: 0, end: 24 },
+      ),
+      frameRate: 24,
+      repeat: -1,
+    });
+
+    this.scene.anims.create({
       key: "jump",
       frames: this.scene.anims.generateFrameNumbers(
         ASSETS.CHARACTERS.THEERTHA.JUMP,
@@ -44,13 +55,23 @@ export default class AnimationManager {
     });
 
     this.scene.anims.create({
-      key: "kiss",
+      key: "attack",
+      frames: this.scene.anims.generateFrameNumbers(
+        ASSETS.CHARACTERS.THEERTHA.ATTACK,
+        { start: 0, end: 24 },
+      ),
+      frameRate: 24,
+      repeat: 0,
+    });
+
+    this.scene.anims.create({
+      key: "theertha-kiss",
       frames: this.scene.anims.generateFrameNumbers(
         ASSETS.CHARACTERS.THEERTHA.KISS,
         { start: 0, end: 24 },
       ),
       frameRate: 24,
-      repeat: 0,
+      repeat: -1,
     });
 
     this.scene.anims.create({
@@ -62,6 +83,56 @@ export default class AnimationManager {
       frameRate: 24,
       repeat: 0,
     });
+  }
+
+  createAkshayAnimations() {
+    if (!this.scene.anims.exists("akshay-run")) {
+      this.scene.anims.create({
+        key: "akshay-run",
+        frames: this.scene.anims.generateFrameNumbers(
+          ASSETS.CHARACTERS.AKSHAY.RUN,
+          { start: 0, end: 24 },
+        ),
+        frameRate: 24,
+        repeat: -1,
+      });
+    }
+
+    if (!this.scene.anims.exists("akshay-love")) {
+      this.scene.anims.create({
+        key: "akshay-love",
+        frames: this.scene.anims.generateFrameNumbers(
+          ASSETS.CHARACTERS.AKSHAY.LOVE,
+          { start: 0, end: 24 },
+        ),
+        frameRate: 24,
+        repeat: -1,
+      });
+    }
+
+    if (!this.scene.anims.exists("akshay-idle")) {
+      this.scene.anims.create({
+        key: "akshay-idle",
+        frames: this.scene.anims.generateFrameNumbers(
+          ASSETS.CHARACTERS.AKSHAY.IDLE,
+          { start: 0, end: 24 },
+        ),
+        frameRate: 24,
+        repeat: -1,
+      });
+    }
+
+    if (!this.scene.anims.exists("akshay-kiss")) {
+      this.scene.anims.create({
+        key: "akshay-kiss",
+        frames: this.scene.anims.generateFrameNumbers(
+          ASSETS.CHARACTERS.AKSHAY.KISS,
+          { start: 0, end: 24 },
+        ),
+        frameRate: 24,
+        repeat: -1,
+      });
+    }
   }
 
   createMinionAnimations() {

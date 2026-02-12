@@ -84,8 +84,8 @@ export default class EnemyManager {
     boss.patrolDirection = 1;
 
     // Health and state
-    boss.maxHealth = 1200;
-    boss.health = 1200;
+    boss.maxHealth = 100;
+    boss.health = 100;
     boss.isBeingHit = false;
     boss.isDead = false;
 

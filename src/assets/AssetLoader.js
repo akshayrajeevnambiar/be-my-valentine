@@ -45,6 +45,11 @@ export default class AssetLoader {
       { frameWidth: 256, frameHeight: 256 },
     );
     scene.load.spritesheet(
+      ASSETS.CHARACTERS.THEERTHA.ATTACK,
+      "assets/characters/theertha/attack.png",
+      { frameWidth: 256, frameHeight: 256 },
+    );
+    scene.load.spritesheet(
       ASSETS.CHARACTERS.THEERTHA.KISS,
       "assets/characters/theertha/kiss.png",
       { frameWidth: 256, frameHeight: 256 },
@@ -52,6 +57,31 @@ export default class AssetLoader {
     scene.load.spritesheet(
       ASSETS.CHARACTERS.THEERTHA.HIT,
       "assets/characters/theertha/hit.png",
+      { frameWidth: 256, frameHeight: 256 },
+    );
+    scene.load.spritesheet(
+      ASSETS.CHARACTERS.THEERTHA.LOVE,
+      "assets/characters/theertha/love.png",
+      { frameWidth: 256, frameHeight: 256 },
+    );
+    scene.load.spritesheet(
+      ASSETS.CHARACTERS.AKSHAY.RUN,
+      "assets/characters/akshay/run.png",
+      { frameWidth: 256, frameHeight: 256 },
+    );
+    scene.load.spritesheet(
+      ASSETS.CHARACTERS.AKSHAY.LOVE,
+      "assets/characters/akshay/love.png",
+      { frameWidth: 256, frameHeight: 256 },
+    );
+    scene.load.spritesheet(
+      ASSETS.CHARACTERS.AKSHAY.IDLE,
+      "assets/characters/akshay/idle.png",
+      { frameWidth: 256, frameHeight: 256 },
+    );
+    scene.load.spritesheet(
+      ASSETS.CHARACTERS.AKSHAY.KISS,
+      "assets/characters/akshay/kiss.png",
       { frameWidth: 256, frameHeight: 256 },
     );
 
@@ -107,6 +137,11 @@ export default class AssetLoader {
 
   static loadItems(scene) {
     scene.load.image(ASSETS.ITEMS.HEART, "assets/items/heart.png");
+    scene.load.image(
+      ASSETS.ITEMS.MOVEMENT_BUTTONS,
+      "assets/items/movement-buttons.png",
+    );
+    scene.load.image(ASSETS.ITEMS.ATTACK_BUTTON, "assets/items/attack-button.png");
     scene.load.spritesheet(ASSETS.ITEMS.STARS, "assets/items/stars.png", {
       frameWidth: 16,
       frameHeight: 16,

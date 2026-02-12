@@ -10,6 +10,7 @@ import EnemyManager from "../managers/EnemyManager";
 import CollectibleManager from "../managers/CollectibleManager";
 import HUDManager from "../managers/HUDManager";
 import CollisionManager from "../managers/CollisionManager";
+import { ASSETS } from "../assets/asset-keys";
 
 export default class PlayScene extends Phaser.Scene {
   constructor() {
@@ -22,11 +23,23 @@ export default class PlayScene extends Phaser.Scene {
     this.playerIsDead = false;
     this.leftBoundLocked = false;
     this.bossSpawned = false; // Track if boss has been spawned
+    this.cutsceneTriggered = false;
+    this.cutsceneAutoMove = false;
+    this.cutsceneControlLocked = false;
+    this.cutsceneAutoMoveCompleted = false;
+    this.akshay = null;
+    this.akshayEntranceStarted = false;
+    this.jumpDisabled = false;
+    this.endKissActive = false;
+    this.controlInstructionImages = [];
 
     // Constants
     this.TILE_SIZE = 128;
     this.BOSS_GATE_X = 4860;
     this.BOSS_RIGHT_GATE_X = 5737;
+    this.CUTSCENE_TRIGGER_X = 5761;
+    this.CUTSCENE_END_X = 6751;
+    this.AKSHAY_END_X = 6820;
   }
 
   preload() {
@@ -76,6 +89,8 @@ export default class PlayScene extends Phaser.Scene {
     this.input.keyboard.on("keydown-O", () => {
       this.logWorldBoundsWidth();
     });
+
+    this.createControlInstructionsUI();
   }
 
   update() {
@@ -93,6 +108,13 @@ export default class PlayScene extends Phaser.Scene {
     this.playerController.update();
     this.enemyManager.update();
     this.backgroundManager.update();
+
+    if (
+      !this.cutsceneTriggered &&
+      this.playerController.player.x >= this.CUTSCENE_TRIGGER_X
+    ) {
+      this.triggerEndCutscene();
+    }
   }
 
   spawnBoss() {
@@ -165,8 +187,146 @@ export default class PlayScene extends Phaser.Scene {
   }
 
   onBossDefeated() {
+    this.jumpDisabled = true;
     this.lockRightBoundaryAt(this.worldWidth);
     console.log(`Boss defeated: right boundary unlocked to ${this.worldWidth}`);
+  }
+
+  triggerEndCutscene() {
+    this.cutsceneTriggered = true;
+    this.cutsceneAutoMove = true;
+    this.cutsceneControlLocked = true;
+    this.hideControlInstructionsUI();
+    this.startAkshayEntrance();
+    console.log(
+      `[TODO] Cutscene starts here (player crossed X=${this.CUTSCENE_TRIGGER_X})`,
+    );
+  }
+
+  onCutsceneAutoMoveComplete() {
+    if (this.cutsceneAutoMoveCompleted) return;
+
+    this.cutsceneAutoMoveCompleted = true;
+    this.cutsceneAutoMove = false;
+
+    this.playerController.player.setVelocityX(0);
+    this.playerController.playAnimation("idle");
+
+    console.log(
+      `[TODO] Cutscene auto-run complete at X=${Math.floor(this.playerController.player.x)} (target ${this.CUTSCENE_END_X})`,
+    );
+  }
+
+  startAkshayEntrance() {
+    if (this.akshayEntranceStarted) return;
+
+    this.akshayEntranceStarted = true;
+
+    const groundY = this.playerController.player.y;
+    const spawnX = this.cameras.main.scrollX + this.cameras.main.width + 150;
+    const stopX = this.AKSHAY_END_X;
+
+    this.akshay = this.add
+      .sprite(spawnX, groundY - 20, ASSETS.CHARACTERS.AKSHAY.LOVE)
+      .setScale(0.8)
+      .setFlipX(false)
+      .setDepth(20);
+
+    this.akshay.play("akshay-love", true);
+
+    this.tweens.add({
+      targets: this.akshay,
+      x: stopX,
+      duration: 2400,
+      ease: "Sine.Out",
+      onComplete: () => {
+        if (!this.akshay || !this.akshay.active) return;
+        const player = this.playerController?.player;
+
+        this.akshay.angle = 10;
+        this.akshay.setScale(0.9);
+        this.akshay.y += 15;
+        this.akshay.play("akshay-kiss", true);
+        this.time.delayedCall(400, () => {
+          // change 400 ms to what you want
+          if (player && player.active) {
+            this.endKissActive = true;
+            player.y -= 25;
+            player.angle -= 10;
+            player.setScale(0.7);
+            player.setFlipX(true);
+            player.play("theertha-kiss", true);
+          }
+        });
+        this.playKissHeartBeat();
+      },
+    });
+
+    console.log("[TODO] Akshay entrance started from the right side.");
+  }
+
+  playKissHeartBeat() {
+    const player = this.playerController?.player;
+    if (!player || !player.active || !this.akshay || !this.akshay.active)
+      return;
+
+    const heartX = (player.x + this.akshay.x) / 2;
+    const heartY = Math.min(player.y, this.akshay.y) - 140;
+    const heart = this.add
+      .image(heartX + 80, heartY + 100, ASSETS.ITEMS.HEART)
+      .setDepth(-10)
+      .setScale(1)
+      .setAlpha(0.9);
+
+    this.tweens.add({
+      targets: heart,
+      scaleX: 0.24,
+      scaleY: 0.24,
+      duration: 450,
+      yoyo: true,
+      repeat: 3,
+      ease: "Sine.InOut",
+    });
+
+    this.tweens.add({
+      targets: heart,
+      alpha: 0,
+      delay: 2400,
+      duration: 500,
+      onComplete: () => {
+        if (heart && heart.active) heart.destroy();
+      },
+    });
+  }
+
+  createControlInstructionsUI() {
+    const cam = this.cameras.main;
+    const baseX = 26;
+    const baseY = cam.height - 26;
+
+    const movementHint = this.add
+      .image(baseX - 90, baseY + 93, ASSETS.ITEMS.MOVEMENT_BUTTONS)
+      .setOrigin(0, 1)
+      .setScrollFactor(0)
+      .setDepth(200)
+      .setScale(0.2)
+      .setAlpha(0.92);
+
+    const attackHint = this.add
+      .image(baseX + 50, baseY + 105, ASSETS.ITEMS.ATTACK_BUTTON)
+      .setOrigin(0, 1)
+      .setScrollFactor(0)
+      .setDepth(200)
+      .setScale(0.55)
+      .setAlpha(0.92);
+
+    this.controlInstructionImages = [movementHint, attackHint];
+  }
+
+  hideControlInstructionsUI() {
+    this.controlInstructionImages.forEach((image) => {
+      if (image && image.active) image.setVisible(false);
+    });
   }
 
   gameOver() {

@@ -48,6 +48,28 @@ export default class PlayerController {
   updateMovement() {
     const onGround = this.player.body.blocked.down;
 
+    // Auto-move during end cutscene
+    if (this.scene.cutsceneAutoMove) {
+      const targetX = this.scene.CUTSCENE_END_X;
+
+      if (this.player.x < targetX) {
+        this.player.setVelocityX(this.SPEED);
+        this.player.setFlipX(false);
+      } else {
+        this.player.setVelocityX(0);
+        if (typeof this.scene.onCutsceneAutoMoveComplete === "function") {
+          this.scene.onCutsceneAutoMoveComplete();
+        }
+      }
+      return;
+    }
+
+    // Lock controls during cutscene hold
+    if (this.scene.cutsceneControlLocked) {
+      this.player.setVelocityX(0);
+      return;
+    }
+
     // Prevent input if hit or dead
     if (this.scene.playerIsBeingHit || this.scene.playerIsDead) {
       return;
@@ -55,7 +77,7 @@ export default class PlayerController {
 
     // Attack input
     if (this.scene.inputManager.isAttackJustPressed()) {
-      this.performKissAttack();
+      this.performAttack();
     }
 
     // Stop horizontal movement during attack
@@ -76,7 +98,11 @@ export default class PlayerController {
     }
 
     // Jump
-    if (this.scene.inputManager.isJumpJustPressed() && onGround) {
+    if (
+      !this.scene.jumpDisabled &&
+      this.scene.inputManager.isJumpJustPressed() &&
+      onGround
+    ) {
       this.player.setVelocityY(-this.JUMP_VELOCITY);
     }
   }
@@ -88,9 +114,16 @@ export default class PlayerController {
     // Skip animation updates if being hit or dead
     if (this.scene.playerIsBeingHit || this.scene.playerIsDead) return;
     if (this.isAttacking) return;
+    if (this.scene.endKissActive) {
+      this.player.setFlipX(true);
+      return this.playAnimation("theertha-kiss");
+    }
 
     if (!onGround) return this.playAnimation("jump");
-    if (moving) return this.playAnimation("run");
+    if (moving) {
+      if (this.scene.cutsceneTriggered) return this.playAnimation("love");
+      return this.playAnimation("run");
+    }
     return this.playAnimation("idle");
   }
 
@@ -100,14 +133,14 @@ export default class PlayerController {
     this.player.play(key, true);
   }
 
-  performKissAttack() {
+  performAttack() {
     if (this.isAttacking) return;
     if (!this.player.body.blocked.down) return;
 
     this.isAttacking = true;
 
     this.lastAnimKey = null;
-    this.player.play("kiss", true);
+    this.player.play("attack", true);
 
     const direction = this.player.flipX ? -1 : 1;
 
