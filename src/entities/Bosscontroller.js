@@ -101,6 +101,7 @@ export default class BossController {
 
     // Play attack animation
     this.boss.play("boss-attack");
+    this.playSfx(ASSETS.SOUNDS.EFFECTS.BOSS_ATTACK, { volume: 0.5 });
 
     // Determine attack pattern based on health
     const healthPercent = this.boss.health / this.boss.maxHealth;
@@ -217,21 +218,22 @@ export default class BossController {
     // Big screen shake on death
     this.scene.cameras.main.shake(800, 0.02);
 
-    this.playFinalLine(() => {
+    // Freeze in fall pose, deliver final line, then drop through the floor.
+    this.scene.time.delayedCall(300, () => {
       if (!this.boss || !this.boss.active) return;
 
-      // Play death sequence
-      this.scene.time.delayedCall(400, () => {
+      this.boss.setVelocity(0, 0);
+      this.boss.play("boss-fall", true);
+
+      this.playFinalLine(() => {
         if (!this.boss || !this.boss.active) return;
 
         this.boss.body.checkCollision.none = true;
         this.boss.body.setCollideWorldBounds(false);
-
         this.boss.setVelocityX(0);
         this.boss.setVelocityY(520);
-        this.boss.play("boss-fall", true);
 
-        this.scene.time.delayedCall(1600, () => {
+        this.scene.time.delayedCall(2400, () => {
           if (this.boss && this.boss.active) {
             this.boss.destroy();
 
@@ -258,14 +260,14 @@ export default class BossController {
     const line = "Even Time cannot stand against true love.";
 
     const bubble = this.scene.add
-      .image(this.boss.x + 120, this.boss.y - 250, ASSETS.ITEMS.SPEECH_BUBBLE)
+      .image(this.boss.x - 320, this.boss.y - 20, ASSETS.ITEMS.SPEECH_BUBBLE)
       .setDepth(90)
       .setScale(0.5)
       .setFlipX(true)
       .setAlpha(0);
 
     const speechText = this.scene.add
-      .text(this.boss.x + 120, this.boss.y - 265, line, {
+      .text(this.boss.x - 320, this.boss.y - 35, line, {
         fontSize: "30px",
         fontFamily: "Arial",
         color: "#1f1f1f",
@@ -275,7 +277,7 @@ export default class BossController {
       .setDepth(91)
       .setAlpha(0);
 
-    const bubbleSideOffset = 70;
+    const bubbleSideOffset = 200;
     const targetBubbleWidth = speechText.width + bubbleSideOffset * 2;
     const targetScaleX = Math.max(0.35, targetBubbleWidth / bubble.width);
     bubble.setScale(targetScaleX, 0.5);
@@ -284,9 +286,15 @@ export default class BossController {
       delay: 16,
       loop: true,
       callback: () => {
-        if (!this.boss || !this.boss.active || !bubble.active || !speechText.active) return;
-        bubble.setPosition(this.boss.x + 120, this.boss.y - 250);
-        speechText.setPosition(this.boss.x + 120, this.boss.y - 265);
+        if (
+          !this.boss ||
+          !this.boss.active ||
+          !bubble.active ||
+          !speechText.active
+        )
+          return;
+        bubble.setPosition(this.boss.x - 320, this.boss.y - 20);
+        speechText.setPosition(this.boss.x - 320, this.boss.y - 35);
       },
     });
 
@@ -318,5 +326,11 @@ export default class BossController {
     if (this.energyBalls) {
       this.energyBalls.clear(true, true);
     }
+  }
+
+  playSfx(key, config = {}) {
+    if (!this.scene?.sound) return;
+    if (!this.scene.cache?.audio?.exists(key)) return;
+    this.scene.sound.play(key, config);
   }
 }

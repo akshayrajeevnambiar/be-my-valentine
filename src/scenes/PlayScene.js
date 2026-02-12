@@ -15,7 +15,10 @@ import { ASSETS } from "../assets/asset-keys";
 export default class PlayScene extends Phaser.Scene {
   constructor() {
     super({ key: "PlayScene" });
+    this.resetSceneState();
+  }
 
+  resetSceneState() {
     // Game state
     this.starsCollected = 0;
     this.playerLives = 5;
@@ -44,6 +47,13 @@ export default class PlayScene extends Phaser.Scene {
     this.carouselMessagesCompleted = false;
     this.carouselTransitionQueued = false;
     this.carouselFadeOutStarted = false;
+    this.currentMusic = null;
+    this.currentMusicKey = null;
+    this.gameOverBgMusic = null;
+    this.gameOverActive = false;
+    this.gameOverCard = null;
+    this.gameOverRestartText = null;
+    this.gameOverRestartHandler = null;
     this.carouselMessageText = null;
     this.carouselMessageIndex = 0;
     this.carouselMessageTimer = null;
@@ -78,12 +88,19 @@ export default class PlayScene extends Phaser.Scene {
     this.AKSHAY_END_X = 6820;
   }
 
+  init() {
+    this.resetSceneState();
+  }
+
   preload() {
     AssetLoader.loadAll(this);
   }
 
   create() {
     const { width, height } = this.cameras.main;
+    if (this.physics?.world) {
+      this.physics.world.resume();
+    }
     this.viewWidth = width;
     this.viewHeight = height;
     this.worldWidth = Math.max(width * 4, 2400);
@@ -127,6 +144,16 @@ export default class PlayScene extends Phaser.Scene {
     });
 
     this.createControlInstructionsUI();
+    this.playMusic(ASSETS.SOUNDS.MUSIC.GAME_LOOP, { volume: 0.28, loop: true });
+    this.events.once("shutdown", () => this.stopCurrentMusic());
+    this.events.once("destroy", () => this.stopCurrentMusic());
+    this.events.once("shutdown", () => {
+      if (this.gameOverRestartHandler) {
+        this.input.keyboard.off("keydown-R", this.gameOverRestartHandler);
+        this.gameOverRestartHandler = null;
+      }
+      this.stopGameOverBgMusic();
+    });
   }
 
   update(_time, delta) {
@@ -159,6 +186,10 @@ export default class PlayScene extends Phaser.Scene {
     if (this.bossSpawned) return; // Only spawn once
 
     this.bossSpawned = true;
+    this.playMusic(ASSETS.SOUNDS.MUSIC.BOSS_FIGHT, {
+      volume: 0.32,
+      loop: true,
+    });
 
     const groundTopY = this.cameras.main.height - this.TILE_SIZE;
 
@@ -354,6 +385,7 @@ export default class PlayScene extends Phaser.Scene {
   onBossDefeated() {
     this.jumpDisabled = true;
     this.lockRightBoundaryAt(this.worldWidth);
+    this.playMusic(ASSETS.SOUNDS.MUSIC.VICTORY, { volume: 0.35, loop: true });
     console.log(`Boss defeated: right boundary unlocked to ${this.worldWidth}`);
   }
 
@@ -361,6 +393,10 @@ export default class PlayScene extends Phaser.Scene {
     this.cutsceneTriggered = true;
     this.cutsceneAutoMove = true;
     this.cutsceneControlLocked = true;
+    this.playMusic(ASSETS.SOUNDS.MUSIC.END_CUTSCENE, {
+      volume: 0.36,
+      loop: true,
+    });
     this.hideControlInstructionsUI();
     this.startAkshayEntrance();
     console.log(
@@ -412,6 +448,7 @@ export default class PlayScene extends Phaser.Scene {
         this.akshay.setScale(0.9);
         this.akshay.y += 15;
         this.akshay.play("akshay-kiss", true);
+        this.playSfx(ASSETS.SOUNDS.EFFECTS.KISS, { volume: 0.55 });
         this.time.delayedCall(400, () => {
           // change 400 ms to what you want
           if (player && player.active) {
@@ -439,6 +476,7 @@ export default class PlayScene extends Phaser.Scene {
     const player = this.playerController?.player;
     if (!player || !player.active || !this.akshay || !this.akshay.active)
       return;
+    this.playSfx(ASSETS.SOUNDS.EFFECTS.HEART_BEAT, { volume: 0.5 });
 
     const heartX = (player.x + this.akshay.x) / 2;
     const heartY = Math.min(player.y, this.akshay.y) - 140;
@@ -778,6 +816,7 @@ export default class PlayScene extends Phaser.Scene {
 
   finishPhotoSlideshow() {
     this.slideshowPlaceholderActive = false;
+    this.stopCurrentMusic();
 
     if (this.backgroundManager) {
       this.backgroundManager.setCinematicScrollSpeed(0);
@@ -835,7 +874,95 @@ export default class PlayScene extends Phaser.Scene {
   }
 
   gameOver() {
+    if (this.gameOverActive) return;
+    this.gameOverActive = true;
+
     console.log("Game Over!");
-    this.scene.start("EndScene", { stars: this.starsCollected });
+    this.stopCurrentMusic();
+    this.playGameOverBgMusic();
+
+    if (this.physics?.world) {
+      this.physics.world.pause();
+    }
+
+    this.hideControlInstructionsUI();
+
+    const cam = this.cameras.main;
+    const targetY = cam.height * 0.5;
+
+    this.gameOverCard = this.add
+      .image(cam.width * 0.5, -220, ASSETS.ITEMS.GAME_OVER_CARD)
+      .setScrollFactor(0)
+      .setDepth(1000)
+      .setScale(2)
+      .setAlpha(0.98);
+
+    this.tweens.add({
+      targets: this.gameOverCard,
+      y: targetY,
+      duration: 1500,
+      ease: "Cubic.Out",
+    });
+
+    this.gameOverRestartHandler = () => {
+      this.input.keyboard.off("keydown-R", this.gameOverRestartHandler);
+      this.stopGameOverBgMusic();
+      this.scene.restart();
+    };
+    this.input.keyboard.on("keydown-R", this.gameOverRestartHandler);
+  }
+
+  playMusic(key, config = {}) {
+    if (!this.registry.get("musicUnlocked")) return;
+    if (!this.sound || !this.cache?.audio?.exists(key)) return;
+    const { volume = 0.3, loop = true } = config;
+
+    if (this.currentMusic && this.currentMusicKey === key) {
+      if (!this.currentMusic.isPlaying) {
+        this.currentMusic.play();
+      }
+      return;
+    }
+
+    this.stopCurrentMusic();
+    this.currentMusic = this.sound.add(key, { volume, loop });
+    this.currentMusicKey = key;
+    this.currentMusic.play();
+  }
+
+  stopCurrentMusic() {
+    if (this.currentMusic) {
+      this.currentMusic.stop();
+      this.currentMusic.destroy();
+      this.currentMusic = null;
+      this.currentMusicKey = null;
+    }
+  }
+
+  playGameOverBgMusic() {
+    if (!this.sound || !this.cache?.audio?.exists(ASSETS.SOUNDS.MUSIC.GAME_OVER_BG))
+      return;
+    if (this.gameOverBgMusic) {
+      if (!this.gameOverBgMusic.isPlaying) this.gameOverBgMusic.play();
+      return;
+    }
+    this.gameOverBgMusic = this.sound.add(ASSETS.SOUNDS.MUSIC.GAME_OVER_BG, {
+      volume: 0.34,
+      loop: true,
+    });
+    this.gameOverBgMusic.play();
+  }
+
+  stopGameOverBgMusic() {
+    if (this.gameOverBgMusic) {
+      this.gameOverBgMusic.stop();
+      this.gameOverBgMusic.destroy();
+      this.gameOverBgMusic = null;
+    }
+  }
+
+  playSfx(key, config = {}) {
+    if (!this.sound || !this.cache?.audio?.exists(key)) return;
+    this.sound.play(key, config);
   }
 }

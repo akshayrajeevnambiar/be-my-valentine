@@ -13,6 +13,15 @@ export default class IntroScene extends Phaser.Scene {
     this.introSkipEnabled = false;
     this.skipToGameHandler = null;
     this.bossSpeechRunning = false;
+    this.currentIntroMusic = null;
+    this.currentIntroMusicKey = null;
+    this.pendingIntroMusicKey = null;
+    this.pendingIntroMusicConfig = null;
+    this.audioUnlockHandler = null;
+    this.introStarted = false;
+    this.introSequenceLaunched = false;
+    this.introStartPrompt = null;
+    this.introStartData = null;
   }
 
   preload() {
@@ -20,10 +29,12 @@ export default class IntroScene extends Phaser.Scene {
     this.preloadCharacters();
     this.preloadTiles();
     this.preloadItems();
+    this.preloadSounds();
   }
 
   create() {
     const { width, height } = this.cameras.main;
+    this.registry.set("musicUnlocked", false);
 
     // --- Background layers ---
     this.bgSky = this.add
@@ -171,35 +182,80 @@ export default class IntroScene extends Phaser.Scene {
     const akshayStopX = width * 0.5 + 200; // right side of center
     const bossLandingX = (theerthaStopX + akshayStopX) / 2;
     const bossLandingY = groundY - 110;
+    this.introStartData = {
+      theerthaStopX,
+      akshayStopX,
+      bossLandingX,
+      bossLandingY,
+      groundY,
+    };
+
+    this.introStartPrompt = this.add
+      .text(width * 0.5, height * 0.82, "Click or press any key to start", {
+        fontSize: "34px",
+        fontFamily: "Arial",
+        color: "#ffffff",
+        stroke: "#000000",
+        strokeThickness: 5,
+      })
+      .setOrigin(0.5)
+      .setDepth(300)
+      .setAlpha(0.92);
 
     this.tweens.add({
-      targets: this.theertha,
-      x: theerthaStopX,
-      duration: this.RUN_DURATION,
-      ease: "Sine.Out",
-      onComplete: () => {
-        this.theertha.play("theertha-idle", true);
-        this.onIntroCharacterArrived(bossLandingX, bossLandingY);
-      },
+      targets: this.introStartPrompt,
+      alpha: 0.4,
+      duration: 700,
+      yoyo: true,
+      repeat: -1,
     });
 
-    this.tweens.add({
-      targets: this.akshay,
-      x: akshayStopX,
-      duration: this.RUN_DURATION,
-      ease: "Sine.Out",
-      onComplete: () => {
-        this.akshay.setFlipX(true);
-        this.akshay.play("akshay-idle", true);
-        this.akshay.setScale(0.7);
-        this.akshay.y = groundY - 7;
-        this.onIntroCharacterArrived(bossLandingX, bossLandingY);
-      },
-    });
+    this.audioUnlockHandler = () => {
+      if (this.introStarted && !this.pendingIntroMusicKey) return;
+      if (!this.introStarted) this.introStarted = true;
+
+      if (this.introStartPrompt && this.introStartPrompt.active) {
+        this.introStartPrompt.destroy();
+        this.introStartPrompt = null;
+      }
+
+      const beginIntro = () => {
+        if (!this.introSequenceLaunched) {
+          this.introSequenceLaunched = true;
+          this.startIntroSequence();
+          // Retry queued intro music shortly after unlocking.
+          this.time.delayedCall(120, () => this.tryPlayPendingIntroMusic());
+          this.time.delayedCall(300, () => this.tryPlayPendingIntroMusic());
+        } else {
+          this.tryPlayPendingIntroMusic();
+        }
+      };
+
+      const ctx = this.sound?.context;
+      if (ctx && ctx.state === "suspended") {
+        ctx.resume().finally(beginIntro);
+      } else {
+        beginIntro();
+      }
+
+      const nowCtx = this.sound?.context;
+      if ((!nowCtx || nowCtx.state === "running") && !this.pendingIntroMusicKey) {
+        this.input.off("pointerdown", this.audioUnlockHandler);
+        if (this.input.keyboard) {
+          this.input.keyboard.off("keydown", this.audioUnlockHandler);
+        }
+      }
+    };
+    this.input.on("pointerdown", this.audioUnlockHandler);
+    if (this.input.keyboard) {
+      this.input.keyboard.on("keydown", this.audioUnlockHandler);
+    }
 
     // --- Skip to game (enabled only after instruction card lands) ---
     this.skipToGameHandler = () => {
       if (!this.introSkipEnabled) return;
+      this.registry.set("musicUnlocked", true);
+      this.playSfx(ASSETS.SOUNDS.EFFECTS.GAME_START, { volume: 0.55 });
       this.input.keyboard.off("keydown-SPACE", this.skipToGameHandler);
       this.scene.start("PhotoLoadingScene");
     };
@@ -209,6 +265,16 @@ export default class IntroScene extends Phaser.Scene {
       if (this.skipToGameHandler) {
         this.input.keyboard.off("keydown-SPACE", this.skipToGameHandler);
       }
+      if (this.audioUnlockHandler) {
+        this.input.off("pointerdown", this.audioUnlockHandler);
+        if (this.input.keyboard) {
+          this.input.keyboard.off("keydown", this.audioUnlockHandler);
+        }
+      }
+      if (this.introStartPrompt && this.introStartPrompt.active) {
+        this.introStartPrompt.destroy();
+      }
+      this.stopIntroMusic();
     });
 
     this.cameras.main.setAlpha(1);
@@ -226,6 +292,11 @@ export default class IntroScene extends Phaser.Scene {
   }
 
   startBossDrop(landingX, landingY) {
+    this.playIntroMusic(ASSETS.SOUNDS.MUSIC.BOSS_INTRO, {
+      volume: 0.38,
+      loop: true,
+    });
+
     const boss = this.add
       .sprite(landingX, -250, ASSETS.CHARACTERS.BOSS.IDLE)
       .setScale(1.5)
@@ -400,6 +471,7 @@ export default class IntroScene extends Phaser.Scene {
   dropTitleCard() {
     if (this.titleCardShown) return;
     this.titleCardShown = true;
+    this.playIntroMusic(ASSETS.SOUNDS.MUSIC.TITLE_CARD, { volume: 0.5, loop: false });
 
     const { width, height } = this.cameras.main;
     const titleCardFinalY = height * 0.38;
@@ -427,6 +499,47 @@ export default class IntroScene extends Phaser.Scene {
       ease: "Sine.InOut",
       onComplete: () => {
         this.introSkipEnabled = true;
+      },
+    });
+  }
+
+  startIntroSequence() {
+    if (!this.introStartData) return;
+    const {
+      theerthaStopX,
+      akshayStopX,
+      bossLandingX,
+      bossLandingY,
+      groundY,
+    } = this.introStartData;
+
+    this.playIntroMusic(ASSETS.SOUNDS.MUSIC.END_CUTSCENE, {
+      volume: 0.36,
+      loop: true,
+    });
+
+    this.tweens.add({
+      targets: this.theertha,
+      x: theerthaStopX,
+      duration: this.RUN_DURATION,
+      ease: "Sine.Out",
+      onComplete: () => {
+        this.theertha.play("theertha-idle", true);
+        this.onIntroCharacterArrived(bossLandingX, bossLandingY);
+      },
+    });
+
+    this.tweens.add({
+      targets: this.akshay,
+      x: akshayStopX,
+      duration: this.RUN_DURATION,
+      ease: "Sine.Out",
+      onComplete: () => {
+        this.akshay.setFlipX(true);
+        this.akshay.play("akshay-idle", true);
+        this.akshay.setScale(0.7);
+        this.akshay.y = groundY - 7;
+        this.onIntroCharacterArrived(bossLandingX, bossLandingY);
       },
     });
   }
@@ -511,5 +624,73 @@ export default class IntroScene extends Phaser.Scene {
       ASSETS.ITEMS.SPEECH_BUBBLE,
       "assets/items/speech-bubble.png",
     );
+  }
+
+  preloadSounds() {
+    this.load.audio(
+      ASSETS.SOUNDS.MUSIC.BOSS_INTRO,
+      "assets/sounds/bg-music/boss-intro.mp3",
+    );
+    this.load.audio(
+      ASSETS.SOUNDS.MUSIC.END_CUTSCENE,
+      "assets/sounds/bg-music/end-cutscene.mp3",
+    );
+    this.load.audio(
+      ASSETS.SOUNDS.MUSIC.TITLE_CARD,
+      "assets/sounds/bg-music/title-card.mp3",
+    );
+    this.load.audio(
+      ASSETS.SOUNDS.EFFECTS.GAME_START,
+      "assets/sounds/effects/game-start.mp3",
+    );
+  }
+
+  playSfx(key, config = {}) {
+    if (!this.sound || !this.cache?.audio?.exists(key)) return;
+    this.sound.play(key, config);
+  }
+
+  playIntroMusic(key, config = {}) {
+    if (!this.sound || !this.cache?.audio?.exists(key)) return;
+    const { volume = 0.4, loop = true } = config;
+    const ctx = this.sound?.context;
+    const audioBlocked =
+      this.sound.locked || (ctx && ctx.state && ctx.state !== "running");
+
+    if (audioBlocked) {
+      this.pendingIntroMusicKey = key;
+      this.pendingIntroMusicConfig = { volume, loop };
+      return;
+    }
+
+    if (this.currentIntroMusic && this.currentIntroMusicKey === key) {
+      if (!this.currentIntroMusic.isPlaying) {
+        this.currentIntroMusic.play();
+      }
+      return;
+    }
+
+    this.stopIntroMusic();
+    this.currentIntroMusic = this.sound.add(key, { volume, loop });
+    this.currentIntroMusicKey = key;
+    this.currentIntroMusic.play();
+  }
+
+  tryPlayPendingIntroMusic() {
+    if (!this.pendingIntroMusicKey) return;
+    const key = this.pendingIntroMusicKey;
+    const config = this.pendingIntroMusicConfig || {};
+    this.pendingIntroMusicKey = null;
+    this.pendingIntroMusicConfig = null;
+    this.playIntroMusic(key, config);
+  }
+
+  stopIntroMusic() {
+    if (this.currentIntroMusic) {
+      this.currentIntroMusic.stop();
+      this.currentIntroMusic.destroy();
+      this.currentIntroMusic = null;
+      this.currentIntroMusicKey = null;
+    }
   }
 }

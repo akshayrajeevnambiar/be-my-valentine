@@ -112,17 +112,17 @@ export default class PlatformBuilder {
     // Spawn minions at strategic positions
     // These enemies can drop hearts when defeated (25% base, 50% if lives ≤ 2)
 
-    // // Early game minions
-    // em.spawnMinion(1300, groundTopY - 100, 250);
-    // em.spawnMinion(1900, groundTopY - 100, 300);
-    // em.spawnMinion(1400, groundTopY - 100, 250);
+    // Early game minions
+    em.spawnMinion(1300, groundTopY - 100, 250);
+    em.spawnMinion(1900, groundTopY - 100, 300);
+    em.spawnMinion(1400, groundTopY - 500, 250);
 
     // // Mid game minions
-    // em.spawnMinion(2500, groundTopY - 100, 300);
-    // em.spawnMinion(3000, groundTopY - 100, 350);
+    em.spawnMinion(2900, groundTopY - 300, 300);
+    em.spawnMinion(3000, groundTopY - 100, 350);
+    em.spawnMinion(3500, groundTopY - 500, 350);
 
     // // Late game minions (before boss)
-    // em.spawnMinion(3700, groundTopY - 100, 300);
-    // em.spawnMinion(4200, groundTopY - 100, 250);
+    em.spawnMinion(4500, groundTopY - 100, 250);
   }
 }

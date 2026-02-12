@@ -46,6 +46,7 @@ export default class CollectibleManager {
     star.destroy();
     this.scene.starsCollected += 1;
     this.scene.hudManager.updateStars(this.scene.starsCollected);
+    this.playSfx(ASSETS.SOUNDS.EFFECTS.COIN_PICKUP, { volume: 0.35 });
   }
 
   spawnLifePickup(x, y) {
@@ -91,7 +92,14 @@ export default class CollectibleManager {
 
     // Visual feedback
     this.scene.cameras.main.flash(200, 255, 100, 150);
+    this.playSfx(ASSETS.SOUNDS.EFFECTS.LIFE_PICKUP, { volume: 0.42 });
 
     console.log(`Life restored! Lives: ${this.scene.playerLives}/5`);
+  }
+
+  playSfx(key, config = {}) {
+    if (!this.scene?.sound) return;
+    if (!this.scene.cache?.audio?.exists(key)) return;
+    this.scene.sound.play(key, config);
   }
 }

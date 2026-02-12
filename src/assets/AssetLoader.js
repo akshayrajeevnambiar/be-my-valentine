@@ -6,6 +6,7 @@ export default class AssetLoader {
     this.loadCharacters(scene);
     this.loadTiles(scene);
     this.loadItems(scene);
+    this.loadSounds(scene);
   }
 
   static loadBackgrounds(scene) {
@@ -137,12 +138,22 @@ export default class AssetLoader {
 
   static loadItems(scene) {
     scene.load.image(ASSETS.ITEMS.HEART, "assets/items/heart.png");
-    scene.load.image(ASSETS.ITEMS.SPEECH_BUBBLE, "assets/items/speech-bubble.png");
+    scene.load.image(
+      ASSETS.ITEMS.GAME_OVER_CARD,
+      "assets/items/game-over-card.png",
+    );
+    scene.load.image(
+      ASSETS.ITEMS.SPEECH_BUBBLE,
+      "assets/items/speech-bubble.png",
+    );
     scene.load.image(
       ASSETS.ITEMS.MOVEMENT_BUTTONS,
       "assets/items/movement-buttons.png",
     );
-    scene.load.image(ASSETS.ITEMS.ATTACK_BUTTON, "assets/items/attack-button.png");
+    scene.load.image(
+      ASSETS.ITEMS.ATTACK_BUTTON,
+      "assets/items/attack-button.png",
+    );
     scene.load.spritesheet(ASSETS.ITEMS.STARS, "assets/items/stars.png", {
       frameWidth: 16,
       frameHeight: 16,
@@ -178,6 +189,93 @@ export default class AssetLoader {
     scene.load.image(
       ASSETS.TILESETS.GRASS_FLOATING.RIGHT,
       "assets/enviroment/tilesets/grass-floating-tile-right.png",
+    );
+  }
+
+  static loadSounds(scene) {
+    scene.load.audio(
+      ASSETS.SOUNDS.MUSIC.BOSS_FIGHT,
+      "assets/sounds/bg-music/boss-fight.mp3",
+    );
+    scene.load.audio(
+      ASSETS.SOUNDS.MUSIC.BOSS_INTRO,
+      "assets/sounds/bg-music/boss-intro.mp3",
+    );
+    scene.load.audio(
+      ASSETS.SOUNDS.MUSIC.END_CUTSCENE,
+      "assets/sounds/bg-music/end-cutscene.mp3",
+    );
+    scene.load.audio(
+      ASSETS.SOUNDS.MUSIC.GAME_LOOP,
+      "assets/sounds/bg-music/game-music-loop.mp3",
+    );
+    scene.load.audio(
+      ASSETS.SOUNDS.MUSIC.GAME_OVER_BG,
+      "assets/sounds/bg-music/game-over-bg.mp3",
+    );
+    scene.load.audio(
+      ASSETS.SOUNDS.MUSIC.TITLE_CARD,
+      "assets/sounds/bg-music/title-card.mp3",
+    );
+    scene.load.audio(
+      ASSETS.SOUNDS.MUSIC.VICTORY,
+      "assets/sounds/bg-music/victory.mp3",
+    );
+    scene.load.audio(
+      ASSETS.SOUNDS.EFFECTS.ATTACK,
+      "assets/sounds/effects/attack.wav",
+    );
+    scene.load.audio(
+      ASSETS.SOUNDS.EFFECTS.BOSS_ATTACK,
+      "assets/sounds/effects/boss-attack.mp3",
+    );
+    scene.load.audio(
+      ASSETS.SOUNDS.EFFECTS.BOSS_HURT,
+      "assets/sounds/effects/boss-hurt.mp3",
+    );
+    scene.load.audio(
+      ASSETS.SOUNDS.EFFECTS.COIN_PICKUP,
+      "assets/sounds/effects/coin-pickup.wav",
+    );
+    scene.load.audio(
+      ASSETS.SOUNDS.EFFECTS.HEART_BEAT,
+      "assets/sounds/effects/heart-beat.mp3",
+    );
+    scene.load.audio(
+      ASSETS.SOUNDS.EFFECTS.HURT,
+      "assets/sounds/effects/hurt.mp3",
+    );
+    scene.load.audio(
+      ASSETS.SOUNDS.EFFECTS.JUMP,
+      "assets/sounds/effects/jump.wav",
+    );
+    scene.load.audio(
+      ASSETS.SOUNDS.EFFECTS.GAME_START,
+      "assets/sounds/effects/game-start.mp3",
+    );
+    scene.load.audio(
+      ASSETS.SOUNDS.EFFECTS.GAME_OVER,
+      "assets/sounds/effects/game-over.mp3",
+    );
+    scene.load.audio(
+      ASSETS.SOUNDS.EFFECTS.LIFE_PICKUP,
+      "assets/sounds/effects/life-pickup.mp3",
+    );
+    scene.load.audio(
+      ASSETS.SOUNDS.EFFECTS.KISS,
+      "assets/sounds/effects/kiss.mp3",
+    );
+    scene.load.audio(
+      ASSETS.SOUNDS.EFFECTS.MINION_HURT,
+      "assets/sounds/effects/minion-hurt.mp3",
+    );
+    scene.load.audio(
+      ASSETS.SOUNDS.EFFECTS.RUNNING,
+      "assets/sounds/effects/running.mp3",
+    );
+    scene.load.audio(
+      ASSETS.SOUNDS.EFFECTS.WIN,
+      "assets/sounds/effects/win.mp3",
     );
   }
 }

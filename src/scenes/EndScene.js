@@ -1,4 +1,5 @@
 import Phaser from "phaser";
+import { ASSETS } from "../assets/asset-keys";
 
 export default class EndScene extends Phaser.Scene {
   constructor() {
@@ -7,6 +8,12 @@ export default class EndScene extends Phaser.Scene {
 
   create() {
     const { width, height } = this.cameras.main;
+    if (this.cache?.audio?.exists(ASSETS.SOUNDS.MUSIC.VICTORY)) {
+      this.sound.play(ASSETS.SOUNDS.MUSIC.VICTORY, { volume: 0.35, loop: true });
+    }
+    if (this.cache?.audio?.exists(ASSETS.SOUNDS.EFFECTS.WIN)) {
+      this.sound.play(ASSETS.SOUNDS.EFFECTS.WIN, { volume: 0.6 });
+    }
 
     // Ending message
     this.add

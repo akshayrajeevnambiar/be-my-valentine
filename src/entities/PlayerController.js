@@ -7,6 +7,8 @@ export default class PlayerController {
     this.player = null;
     this.lastAnimKey = null;
     this.isAttacking = false;
+    this.runningLoopSfx = null;
+    this.criticalHeartbeatSfx = null;
 
     // Constants
     this.SPEED = 350;
@@ -19,7 +21,7 @@ export default class PlayerController {
 
     this.player = this.scene.physics.add
       .sprite(
-        4000,
+        200,
         height - this.scene.TILE_SIZE - 200,
         ASSETS.CHARACTERS.THEERTHA.IDLE,
       )
@@ -38,11 +40,43 @@ export default class PlayerController {
       this.player,
       this.scene.platformBuilder.platforms,
     );
+
+    if (this.scene.cache?.audio?.exists(ASSETS.SOUNDS.EFFECTS.RUNNING)) {
+      this.runningLoopSfx = this.scene.sound.add(ASSETS.SOUNDS.EFFECTS.RUNNING, {
+        loop: true,
+        volume: 0.2,
+      });
+    }
+
+    if (this.scene.cache?.audio?.exists(ASSETS.SOUNDS.EFFECTS.HEART_BEAT)) {
+      this.criticalHeartbeatSfx = this.scene.sound.add(
+        ASSETS.SOUNDS.EFFECTS.HEART_BEAT,
+        {
+          loop: true,
+          volume: 0.25,
+        },
+      );
+    }
+
+    this.scene.events.once("shutdown", () => {
+      this.stopRunningSfx();
+      this.stopCriticalHeartbeatSfx();
+      if (this.runningLoopSfx) {
+        this.runningLoopSfx.destroy();
+        this.runningLoopSfx = null;
+      }
+      if (this.criticalHeartbeatSfx) {
+        this.criticalHeartbeatSfx.destroy();
+        this.criticalHeartbeatSfx = null;
+      }
+    });
   }
 
   update() {
     this.updateMovement();
     this.updateAnimationState();
+    this.updateRunningSfx();
+    this.updateCriticalHeartbeatSfx();
   }
 
   updateMovement() {
@@ -110,6 +144,7 @@ export default class PlayerController {
       onGround
     ) {
       this.player.setVelocityY(-this.JUMP_VELOCITY);
+      this.playSfx(ASSETS.SOUNDS.EFFECTS.JUMP, { volume: 0.45 });
     }
   }
 
@@ -151,6 +186,7 @@ export default class PlayerController {
 
     this.lastAnimKey = null;
     this.player.play("attack", true);
+    this.playSfx(ASSETS.SOUNDS.EFFECTS.ATTACK, { volume: 0.5 });
 
     const direction = this.player.flipX ? -1 : 1;
 
@@ -189,6 +225,8 @@ export default class PlayerController {
     // Apply knockback
     this.player.setVelocityX(knockbackDirection * 300);
     this.player.setVelocityY(-200);
+    this.playSfx(ASSETS.SOUNDS.EFFECTS.HURT, { volume: 0.55 });
+    this.stopRunningSfx();
 
     // Play hit animation
     this.lastAnimKey = null;
@@ -209,6 +247,9 @@ export default class PlayerController {
 
   die() {
     this.scene.playerIsDead = true;
+    this.playSfx(ASSETS.SOUNDS.EFFECTS.GAME_OVER, { volume: 0.65 });
+    this.stopRunningSfx();
+    this.stopCriticalHeartbeatSfx();
 
     this.scene.time.delayedCall(400, () => {
       if (!this.player || !this.player.active) return;
@@ -229,5 +270,62 @@ export default class PlayerController {
         this.scene.gameOver();
       });
     });
+  }
+
+  playSfx(key, config = {}) {
+    if (!this.scene?.sound) return;
+    if (!this.scene.cache?.audio?.exists(key)) return;
+    this.scene.sound.play(key, config);
+  }
+
+  updateRunningSfx() {
+    if (!this.runningLoopSfx) return;
+
+    const onGround = this.player?.body?.blocked?.down;
+    const moving = Math.abs(this.player?.body?.velocity?.x || 0) > 1;
+    const canRunSound =
+      onGround &&
+      moving &&
+      !this.isAttacking &&
+      !this.scene.playerIsBeingHit &&
+      !this.scene.playerIsDead &&
+      !this.scene.endKissActive;
+
+    if (canRunSound) {
+      if (!this.runningLoopSfx.isPlaying) {
+        this.runningLoopSfx.play();
+      }
+      return;
+    }
+
+    this.stopRunningSfx();
+  }
+
+  stopRunningSfx() {
+    if (this.runningLoopSfx?.isPlaying) {
+      this.runningLoopSfx.stop();
+    }
+  }
+
+  updateCriticalHeartbeatSfx() {
+    if (!this.criticalHeartbeatSfx) return;
+
+    const criticalLives = this.scene.playerLives < 3;
+    const shouldPlay = criticalLives && !this.scene.playerIsDead;
+
+    if (shouldPlay) {
+      if (!this.criticalHeartbeatSfx.isPlaying) {
+        this.criticalHeartbeatSfx.play();
+      }
+      return;
+    }
+
+    this.stopCriticalHeartbeatSfx();
+  }
+
+  stopCriticalHeartbeatSfx() {
+    if (this.criticalHeartbeatSfx?.isPlaying) {
+      this.criticalHeartbeatSfx.stop();
+    }
   }
 }

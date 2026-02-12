@@ -54,7 +54,7 @@ export default class EnemyManager {
     minion.patrolDirection = 1;
 
     // Health and state
-    minion.health = 500;
+    minion.health = 300;
     minion.isBeingHit = false;
     minion.isDead = false;
 
@@ -84,8 +84,8 @@ export default class EnemyManager {
     boss.patrolDirection = 1;
 
     // Health and state
-    boss.maxHealth = 100;
-    boss.health = 100;
+    boss.maxHealth = 1200;
+    boss.health = 1200;
     boss.isBeingHit = false;
     boss.isDead = false;
 
@@ -158,6 +158,7 @@ export default class EnemyManager {
   handleMinionHit(minion, knockbackDirection) {
     minion.health -= 100;
     minion.isBeingHit = true;
+    this.playSfx(ASSETS.SOUNDS.EFFECTS.MINION_HURT, { volume: 0.45 });
 
     minion.setVelocityX(knockbackDirection * 150);
     minion.play("minion-hit");
@@ -179,6 +180,7 @@ export default class EnemyManager {
     if (boss.isDead) return; // Already dead, skip
 
     boss.isBeingHit = true;
+    this.playSfx(ASSETS.SOUNDS.EFFECTS.BOSS_HURT, { volume: 0.5 });
 
     boss.setVelocityX(knockbackDirection * 150);
     boss.play("boss-hit");
@@ -262,5 +264,11 @@ export default class EnemyManager {
         }
       });
     });
+  }
+
+  playSfx(key, config = {}) {
+    if (!this.scene?.sound) return;
+    if (!this.scene.cache?.audio?.exists(key)) return;
+    this.scene.sound.play(key, config);
   }
 }
